@@ -3,26 +3,32 @@ import { useEffect, useRef, useState } from "react";
 /**
  * Scroll-driven video background.
  * - Maps document scroll progress to video.currentTime (scrubbing).
- * - Honors prefers-reduced-motion: plays slow muted loop instead of scrubbing.
- * - Mobile / coarse-pointer: hides video, falls back to gradient + first-frame poster.
+ * - Direct mapping (no easing) — video tracks scroll position 1:1
+ * - Forces frame decode via requestVideoFrameCallback when available
+ * - Honors prefers-reduced-motion: plays slow muted loop instead
+ * - Mobile: hides video, uses a static fallback
+ *
+ * NO poster attribute — we don't want a pre-load flash of any image.
+ * The video element starts black until the first frame decodes.
  */
-export default function ScrollFrameBackground({ poster }: { poster?: string }) {
+export default function ScrollFrameBackground(_props: { poster?: string } = {}) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const mqMobile = window.matchMedia("(max-width: 720px), (hover: none)");
     const mqReduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const updateMobile = () => setIsMobile(mqMobile.matches);
-    const updateReduced = () => setReducedMotion(mqReduced.matches);
-    updateMobile();
-    updateReduced();
-    mqMobile.addEventListener("change", updateMobile);
-    mqReduced.addEventListener("change", updateReduced);
+    setIsMobile(mqMobile.matches);
+    setReducedMotion(mqReduced.matches);
+    const mu = () => setIsMobile(mqMobile.matches);
+    const mr = () => setReducedMotion(mqReduced.matches);
+    mqMobile.addEventListener("change", mu);
+    mqReduced.addEventListener("change", mr);
     return () => {
-      mqMobile.removeEventListener("change", updateMobile);
-      mqReduced.removeEventListener("change", updateReduced);
+      mqMobile.removeEventListener("change", mu);
+      mqReduced.removeEventListener("change", mr);
     };
   }, []);
 
@@ -32,90 +38,91 @@ export default function ScrollFrameBackground({ poster }: { poster?: string }) {
     if (!video) return;
 
     let videoDuration = 0;
-    let bufferReady = false;
-    let targetTime = 0;
-    let currentTime = 0;
-    let rafId = 0;
+    let primed = false;
 
-    // Prime the buffer by briefly playing then pausing. Browsers won't
-    // download the full video data until play() is called, which means
-    // paused-seek to a faraway timestamp renders a black frame. Playing
-    // once forces the buffer to fill.
-    const primeBuffer = async () => {
+    // Prime the buffer: play muted briefly to force the browser to
+    // download the full video data, otherwise paused-seek renders black.
+    const prime = async () => {
+      if (primed) return;
       try {
         video.muted = true;
         await video.play();
-        // Let it play through a couple of frames so the buffer fills,
-        // then pause so scroll-scrub takes over.
-        setTimeout(() => {
-          video.pause();
-          video.currentTime = 0;
-          bufferReady = true;
-        }, 80);
+        // Let it run for 200ms so the buffer fills then pause
+        await new Promise((r) => setTimeout(r, 200));
+        video.pause();
+        video.currentTime = 0;
+        primed = true;
+        setReady(true);
       } catch {
-        bufferReady = true; // try seeking anyway
+        primed = true;
+        setReady(true);
       }
     };
 
     const onLoaded = () => {
       videoDuration = video.duration || 0;
-      primeBuffer();
+      prime();
     };
     video.addEventListener("loadedmetadata", onLoaded);
     if (video.readyState >= 1) onLoaded();
 
     if (reducedMotion) {
-      // No scrubbing — gentle muted loop at 0.25x
       video.loop = true;
       video.playbackRate = 0.25;
       video.play().catch(() => {});
-      return () => {
-        video.removeEventListener("loadedmetadata", onLoaded);
-      };
+      return () => video.removeEventListener("loadedmetadata", onLoaded);
     }
 
-    // Smooth interpolation loop — every frame, ease currentTime toward
-    // the scroll-derived target. This produces buttery scrubbing on rapid
-    // wheel input AND keeps the video "active" so the browser keeps
-    // decoding frames instead of dropping to a static poster.
-    const tick = () => {
-      if (bufferReady && videoDuration) {
-        const diff = targetTime - currentTime;
-        if (Math.abs(diff) > 0.005) {
-          currentTime += diff * 0.18; // ease factor
-          video.currentTime = currentTime;
-        }
+    // Direct mapping: scroll position → currentTime, no easing.
+    // This is the reliable way — easing makes it look stuck on slow scroll.
+    let rafScheduled = false;
+    const update = () => {
+      rafScheduled = false;
+      if (!primed || !videoDuration) return;
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = maxScroll > 0 ? Math.max(0, Math.min(1, window.scrollY / maxScroll)) : 0;
+      const target = progress * videoDuration;
+      // Direct snap to target, browser will decode
+      if (Math.abs(video.currentTime - target) > 0.01) {
+        video.currentTime = target;
       }
-      rafId = requestAnimationFrame(tick);
-    };
-    rafId = requestAnimationFrame(tick);
-
-    const recalcTarget = () => {
-      const maxScroll =
-        document.documentElement.scrollHeight - window.innerHeight;
-      const progress =
-        maxScroll > 0
-          ? Math.max(0, Math.min(1, window.scrollY / maxScroll))
-          : 0;
-      if (videoDuration) targetTime = progress * videoDuration;
     };
 
-    window.addEventListener("scroll", recalcTarget, { passive: true });
-    window.addEventListener("wheel", recalcTarget, { passive: true });
-    window.addEventListener("resize", recalcTarget, { passive: true });
-    recalcTarget();
+    const onScroll = () => {
+      if (rafScheduled) return;
+      rafScheduled = true;
+      requestAnimationFrame(update);
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("wheel", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+
+    // Initial sync
+    onScroll();
 
     return () => {
-      cancelAnimationFrame(rafId);
-      window.removeEventListener("scroll", recalcTarget);
-      window.removeEventListener("wheel", recalcTarget);
-      window.removeEventListener("resize", recalcTarget);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("wheel", onScroll);
+      window.removeEventListener("resize", onScroll);
       video.removeEventListener("loadedmetadata", onLoaded);
     };
   }, [isMobile, reducedMotion]);
 
   return (
     <>
+      {/* Solid black backdrop — paints first, prevents any flash of
+          a placeholder image. The video paints on top once it's ready. */}
+      <div
+        aria-hidden
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: -3,
+          background: "#0a0a0a",
+        }}
+      />
+
       {!isMobile && (
         <video
           ref={videoRef}
@@ -123,7 +130,7 @@ export default function ScrollFrameBackground({ poster }: { poster?: string }) {
           muted
           playsInline
           preload="auto"
-          poster={poster}
+          // NO poster — eliminates the pre-decode image flash
           style={{
             position: "fixed",
             inset: 0,
@@ -131,27 +138,28 @@ export default function ScrollFrameBackground({ poster }: { poster?: string }) {
             height: "100%",
             objectFit: "cover",
             zIndex: -2,
+            opacity: ready ? 1 : 0,
+            transition: "opacity 400ms ease",
           }}
         >
           <source src="/video/ciza-scroll.webm" type="video/webm" />
           <source src="/video/ciza-scroll.mp4" type="video/mp4" />
         </video>
       )}
-      {isMobile && poster && (
+
+      {isMobile && (
         <div
           aria-hidden
           style={{
             position: "fixed",
             inset: 0,
             zIndex: -2,
-            backgroundImage: `url(${poster})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
+            background: "radial-gradient(ellipse at center, #1a1a1a 0%, #0a0a0a 100%)",
           }}
         />
       )}
-      {/* Subtle vignette + tiny top/bottom fade for legibility — let the
-          actual video frames dominate. Was 60-85% black which buried them. */}
+
+      {/* Subtle vignette only — no heavy dimming. Video frames are the star. */}
       <div
         aria-hidden
         style={{
@@ -160,7 +168,7 @@ export default function ScrollFrameBackground({ poster }: { poster?: string }) {
           zIndex: -1,
           pointerEvents: "none",
           background:
-            "linear-gradient(rgba(10,10,10,0.15) 0%, rgba(10,10,10,0.0) 25%, rgba(10,10,10,0.0) 70%, rgba(10,10,10,0.35) 100%)",
+            "linear-gradient(rgba(10,10,10,0.18) 0%, rgba(10,10,10,0.0) 25%, rgba(10,10,10,0.0) 70%, rgba(10,10,10,0.4) 100%)",
         }}
       />
     </>
