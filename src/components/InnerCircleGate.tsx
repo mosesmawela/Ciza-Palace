@@ -1,5 +1,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 
+const SITE_URL = "https://ciza-palace.lvrn.dev";
+const QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=480x480&margin=12&bgcolor=0a0a0a&color=F5A623&data=${encodeURIComponent(SITE_URL)}`;
+
 /**
  * Inner Circle gate — the simple, intimate landing surface.
  * - Personal note from CIZA ("Don Cizario") typed out char-by-char
@@ -39,6 +42,8 @@ export default function InnerCircleGate({
   const [message, setMessage] = useState("");
   const [typed, setTyped] = useState("");
   const [phase, setPhase] = useState<"mounted" | "leaving">("mounted");
+  const [shareState, setShareState] = useState<"idle" | "copied">("idle");
+  const [qrOpen, setQrOpen] = useState(false);
   const formRef = useRef<HTMLFormElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const reducedRef = useRef(false);
@@ -87,6 +92,47 @@ export default function InnerCircleGate({
 
   // Allow tapping anywhere on the message to skip the typewriter
   const skipType = () => setTyped(MESSAGE);
+
+  const onShare = async () => {
+    const payload = {
+      title: "CIZA — Ciza's Palace",
+      text: "Hey Cizarian — join the family.",
+      url: SITE_URL,
+    };
+    try {
+      if (typeof navigator !== "undefined" && "share" in navigator) {
+        await (navigator as Navigator & { share: (d: ShareData) => Promise<void> }).share(payload);
+        return;
+      }
+    } catch {
+      // user cancelled or share blocked — fall through to clipboard
+    }
+    try {
+      await navigator.clipboard.writeText(SITE_URL);
+      setShareState("copied");
+      setTimeout(() => setShareState("idle"), 1800);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const downloadQR = async () => {
+    try {
+      const res = await fetch(QR_SRC);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ciza-palace-qr.png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch {
+      // Fallback — open in new tab
+      window.open(QR_SRC, "_blank");
+    }
+  };
 
   const enter = () => {
     try {
@@ -300,6 +346,72 @@ export default function InnerCircleGate({
             </p>
           )}
         </form>
+
+        {/* Share with friends + QR toggle — side by side, compact */}
+        <div className="flex items-center gap-2 mb-3">
+          <button
+            type="button"
+            onClick={onShare}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-[10px] uppercase tracking-[0.22em] font-mono text-fg/85 border border-white/12 hover:border-accent/40 hover:text-white transition-colors"
+            aria-label="Share with friends"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-3.5 h-3.5" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+            </svg>
+            <span>{shareState === "copied" ? "Link Copied" : "Share With Friends"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setQrOpen((v) => !v)}
+            aria-expanded={qrOpen}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-[10px] uppercase tracking-[0.22em] font-mono border transition-colors ${
+              qrOpen
+                ? "border-accent/55 text-accent bg-accent/[0.06]"
+                : "border-white/12 text-fg/85 hover:border-accent/40 hover:text-white"
+            }`}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-3.5 h-3.5" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z" />
+            </svg>
+            <span>{qrOpen ? "Hide QR" : "Show QR Code"}</span>
+          </button>
+        </div>
+
+        {/* QR panel — expands inline below the buttons */}
+        {qrOpen && (
+          <div
+            className="w-full max-w-[260px] flex flex-col items-center gap-3 mb-3 p-4 rounded-2xl border border-white/10"
+            style={{
+              background: "rgba(14,14,16,0.6)",
+              backdropFilter: "blur(14px) saturate(150%)",
+              WebkitBackdropFilter: "blur(14px) saturate(150%)",
+            }}
+          >
+            <img
+              src={QR_SRC}
+              alt="QR code for ciza-palace.lvrn.dev"
+              className="w-44 h-44 rounded-lg"
+              style={{
+                imageRendering: "pixelated",
+                boxShadow: "0 8px 30px -10px rgba(245,166,35,0.35)",
+              }}
+            />
+            <p className="font-mono text-[9px] uppercase tracking-[0.28em] text-accent/85 text-center leading-relaxed">
+              Scan to enter the Palace
+            </p>
+            <button
+              type="button"
+              onClick={downloadQR}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[10px] uppercase tracking-[0.25em] font-mono font-bold text-bg bg-accent hover:bg-accent/90 transition-colors"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-3.5 h-3.5" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              <span>Download QR</span>
+            </button>
+          </div>
+        )}
 
         {/* Divider */}
         <div className="flex items-center gap-3 w-full max-w-[240px] mb-3">
