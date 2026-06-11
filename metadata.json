@@ -1,0 +1,6 @@
+{
+  "name": "CIZA Artist Fan Website",
+  "description": "A dark, premium, modern fan website for South African amapiano artist CIZA to capture fan newsletter signups, view latest music embeds, and get tour info.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
