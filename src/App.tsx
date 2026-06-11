@@ -8,7 +8,6 @@ import TypewriterQuote from "./components/TypewriterQuote";
 import RotatingHeadline from "./components/RotatingHeadline";
 import Countdown from "./components/Countdown";
 import ShareButton from "./components/ShareButton";
-import StickyMobileCTA from "./components/StickyMobileCTA";
 import SubscribeForm from "./components/SubscribeForm";
 import GlassCard from "./components/GlassCard";
 import Marquee from "./components/Marquee";
@@ -503,7 +502,7 @@ export default function App() {
         </ScrollReveal>
       </section>
 
-      <footer className="max-w-6xl mx-auto px-6 py-12 pb-24 md:pb-12 border-t border-white/5 flex flex-col md:flex-row gap-6 justify-between items-center text-xs font-mono text-muted">
+      <footer className="max-w-6xl mx-auto px-6 py-12 border-t border-white/5 flex flex-col md:flex-row gap-6 justify-between items-center text-xs font-mono text-muted">
         <div className="flex items-center gap-4">
           <img src="/logos/ciza-palace.svg" alt="Ciza's Palace" className="h-10 w-auto opacity-80" />
           <span>CIZA · LVRN · 2026</span>
@@ -518,7 +517,6 @@ export default function App() {
         </div>
       </footer>
 
-      <StickyMobileCTA href="https://ciza.lvrn.dev" label="View Full EPK" />
     </div>
   );
 }

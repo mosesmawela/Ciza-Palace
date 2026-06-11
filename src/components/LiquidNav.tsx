@@ -24,6 +24,26 @@ export default function LiquidNav({
   const bubbleRef = useRef<HTMLDivElement | null>(null);
   const [activeId, setActiveId] = useState<string>(items[0]?.id ?? "");
   const [reduced, setReduced] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Lock body scroll when drawer is open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = menuOpen ? "hidden" : prev || "";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [menuOpen]);
+
+  // Close on escape
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
 
   useEffect(() => {
     setReduced(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -76,6 +96,7 @@ export default function LiquidNav({
   }, [activeId]);
 
   return (
+    <>
     <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-black/40 border-b border-white/5">
       <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
         <a
@@ -85,6 +106,19 @@ export default function LiquidNav({
         >
           <img src={logoSrc} alt="CIZA" className="h-7 w-auto" />
         </a>
+
+        {/* Mobile hamburger — opens the side drawer */}
+        <button
+          type="button"
+          aria-label="Open menu"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen(true)}
+          className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-full border border-white/10 text-fg/90 hover:text-accent hover:border-accent/40 transition-colors"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5" aria-hidden>
+            <path strokeLinecap="round" d="M4 7h16M4 12h16M4 17h10" />
+          </svg>
+        </button>
 
         <div
           ref={containerRef}
@@ -156,5 +190,142 @@ export default function LiquidNav({
         }
       `}</style>
     </nav>
+
+      {/* === Mobile side drawer ===
+          Rendered OUTSIDE <nav> because nav has backdrop-filter which
+          creates a containing block for position:fixed descendants —
+          would trap the drawer inside the 64px-tall nav. */}
+      {/* Backdrop */}
+      <div
+        aria-hidden
+        onClick={() => setMenuOpen(false)}
+        className="md:hidden fixed inset-0 z-[60] transition-opacity duration-300"
+        style={{
+          background: "rgba(5, 5, 7, 0.65)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          opacity: menuOpen ? 1 : 0,
+          pointerEvents: menuOpen ? "auto" : "none",
+        }}
+      />
+      {/* Panel */}
+      <aside
+        aria-hidden={!menuOpen}
+        data-open={menuOpen ? "true" : "false"}
+        className="liquid-nav-drawer md:hidden fixed top-0 right-0 bottom-0 z-[61] w-[78%] max-w-[340px] flex flex-col"
+        style={{
+          background: "rgba(12, 12, 14, 0.92)",
+          backdropFilter: "blur(28px) saturate(160%)",
+          WebkitBackdropFilter: "blur(28px) saturate(160%)",
+          borderLeft: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "-24px 0 60px -20px rgba(0,0,0,0.7)",
+        }}
+      >
+        {/* Drawer header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+          <img src={logoSrc} alt="CIZA" className="h-7 w-auto" />
+          <button
+            type="button"
+            aria-label="Close menu"
+            onClick={() => setMenuOpen(false)}
+            className="inline-flex items-center justify-center w-10 h-10 rounded-full border border-white/10 text-fg/90 hover:text-accent hover:border-accent/40 transition-colors"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5" aria-hidden>
+              <path strokeLinecap="round" d="M6 6l12 12M6 18L18 6" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Section list */}
+        <nav className="flex-1 overflow-y-auto px-6 py-8">
+          <ul className="flex flex-col gap-1 list-none m-0 p-0">
+            {items.map((it, i) => (
+              <li
+                key={it.id}
+                style={{
+                  transitionDelay: menuOpen ? `${i * 60 + 80}ms` : "0ms",
+                  transitionProperty: "opacity, transform",
+                  transitionDuration: "440ms",
+                  transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+                  opacity: menuOpen ? 1 : 0,
+                  transform: menuOpen ? "translate3d(0,0,0)" : "translate3d(16px, 0, 0)",
+                }}
+              >
+                <a
+                  href={`#${it.id}`}
+                  onClick={() => {
+                    setActiveId(it.id);
+                    setMenuOpen(false);
+                  }}
+                  className={`flex items-center justify-between gap-4 px-2 py-4 border-b border-white/[0.04] font-display text-2xl tracking-tight transition-colors ${
+                    activeId === it.id
+                      ? "text-accent"
+                      : "text-fg/90 hover:text-accent"
+                  }`}
+                >
+                  <span className="flex items-center gap-4">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted">
+                      0{i + 1}
+                    </span>
+                    <span>{it.label}</span>
+                  </span>
+                  <span aria-hidden className="text-muted/70">→</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        {/* Drawer footer CTA */}
+        <div
+          className="px-6 py-6 border-t border-white/[0.06]"
+          style={{
+            paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
+          }}
+        >
+          <a
+            href="https://ciza.lvrn.dev"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setMenuOpen(false)}
+            className="beam-border beam-border-white flex items-center justify-center gap-3 w-full px-6 py-4 rounded-full text-xs uppercase tracking-[0.3em] font-bold text-bg bg-accent hover:bg-accent/90 transition-colors"
+          >
+            <span>View Full EPK</span>
+            <span aria-hidden>→</span>
+          </a>
+          <p className="text-center mt-3 font-mono text-[10px] uppercase tracking-[0.3em] text-muted/70">
+            Booking · Press · Rates
+          </p>
+        </div>
+      </aside>
+
+      <style>{`
+        @keyframes liquidWobble {
+          0%   { filter: blur(0); }
+          40%  { filter: blur(0.6px); }
+          100% { filter: blur(0); }
+        }
+        .liquid-nav-bubble {
+          animation: liquidWobble 620ms ease-out;
+          animation-fill-mode: backwards;
+        }
+        /* Drawer position via data attribute. Uses opacity + visibility
+           for the in/out feel (browser-CSS animations on transform
+           are wedging at currentTime 0 in this app's CSS environment —
+           likely a clash with @property + reduced-motion blanket rule). */
+        .liquid-nav-drawer {
+          transform: translateX(100%);
+          opacity: 0;
+          visibility: hidden;
+          transition: opacity 320ms ease, visibility 0s linear 320ms;
+        }
+        .liquid-nav-drawer[data-open="true"] {
+          transform: translateX(0);
+          opacity: 1;
+          visibility: visible;
+          transition: opacity 280ms ease, visibility 0s linear 0s;
+        }
+      `}</style>
+    </>
   );
 }

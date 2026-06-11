@@ -8,8 +8,8 @@ import { useEffect, useRef, useState } from "react";
  *
  * Pattern: same one Apple/Stripe scroll sequences use.
  */
-const DESKTOP_FRAMES = 59;
-const MOBILE_FRAMES = 26;
+const DESKTOP_FRAMES = 119;
+const MOBILE_FRAMES = 79;
 const desktopFramePath = (i: number) =>
   `/frames/frame_${String(i + 1).padStart(3, "0")}.jpg`;
 const mobileFramePath = (i: number) =>
@@ -91,6 +91,9 @@ export default function ScrollFrameBackground(_props: { poster?: string } = {}) 
     sizeCanvas();
 
     let lastIdx = -1;
+    let easedProgress = 0;
+    let targetProgress = 0;
+    let rafLoopActive = false;
     const paint = (idx: number) => {
       const img = imagesRef.current[idx];
       if (!img || !img.complete || !img.naturalWidth) return;
@@ -108,29 +111,44 @@ export default function ScrollFrameBackground(_props: { poster?: string } = {}) 
       ctx.drawImage(img, x, y, w, h);
     };
 
-    let rafScheduled = false;
-    const update = () => {
-      rafScheduled = false;
-      const maxScroll =
-        document.documentElement.scrollHeight - window.innerHeight;
-      const progress =
-        maxScroll > 0
-          ? Math.max(0, Math.min(1, window.scrollY / maxScroll))
-          : 0;
+    // Continuous rAF loop that eases the painted progress toward the
+    // scroll position. With 119/79 frames + ~0.20 ease factor, fast
+    // scrolls slide through smoothly and slow scrolls anchor — no
+    // visible "skip" between frames.
+    const tick = () => {
+      // Lerp eased toward target
+      const delta = targetProgress - easedProgress;
+      if (Math.abs(delta) > 0.0001) {
+        easedProgress += delta * 0.22;
+      } else {
+        easedProgress = targetProgress;
+      }
       const idx = Math.min(
         frameCount - 1,
-        Math.floor(progress * (frameCount - 1))
+        Math.round(easedProgress * (frameCount - 1))
       );
       if (idx !== lastIdx) {
         lastIdx = idx;
         paint(idx);
       }
+      if (rafLoopActive) requestAnimationFrame(tick);
+    };
+    rafLoopActive = true;
+    requestAnimationFrame(tick);
+
+    const update = () => {
+      const maxScroll =
+        document.documentElement.scrollHeight - window.innerHeight;
+      targetProgress =
+        maxScroll > 0
+          ? Math.max(0, Math.min(1, window.scrollY / maxScroll))
+          : 0;
       // Focal blur: progress 0 = full screen blurred 32px, no transparent center
       // progress 1 = sides blurred 10px, center fully open
       const blurEl = blurRef.current;
       if (blurEl) {
         // Use 0..0.5 window for the focal-open animation; after 0.5 keep state stable
-        const focal = Math.min(1, progress / 0.5);
+        const focal = Math.min(1, targetProgress / 0.5);
         const blurAmt = 32 - focal * 22; // 32 → 10
         const innerR = focal * 38; // 0 → 38% transparent radius
         const outerR = 60 + focal * 35; // 60 → 95% blur falloff edge
@@ -143,9 +161,7 @@ export default function ScrollFrameBackground(_props: { poster?: string } = {}) 
     };
 
     const onScroll = () => {
-      if (rafScheduled) return;
-      rafScheduled = true;
-      requestAnimationFrame(update);
+      update();
     };
 
     const onResize = () => {
@@ -154,7 +170,7 @@ export default function ScrollFrameBackground(_props: { poster?: string } = {}) 
       update();
     };
 
-    // Initial paint
+    // Initial paint + sync target
     paint(0);
     update();
 
@@ -164,6 +180,7 @@ export default function ScrollFrameBackground(_props: { poster?: string } = {}) 
     window.addEventListener("resize", onResize);
 
     return () => {
+      rafLoopActive = false;
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("wheel", onScroll);
       window.removeEventListener("touchmove", onScroll);
