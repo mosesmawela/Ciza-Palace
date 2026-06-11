@@ -59,31 +59,38 @@ The server will start at `http://localhost:3000`. You can instantly interact wit
 
 ---
 
-## 🔗 Connecting Resend (Production Setup)
+## 🔗 Resend Audience Wiring (Newsletter Signup)
 
-Inside your api routing file (`app/api/subscribe/route.ts` or `server.ts`), you can replace the `TODO` log section with direct Resend mail-sending workflows:
+The `/api/subscribe` endpoint in `server.ts` adds submitted emails to a **Resend Audience** (subscribed contacts list) so you can blast them about releases, events, and drops.
 
-1. Install the official SDK:
-   ```bash
-   npm install resend
-   ```
-2. Generate your API key in the [Resend Console](https://resend.com) and add it to your environment:
+### Setup checklist (do these once)
+
+1. **Create a Resend account** at [resend.com](https://resend.com).
+2. **Verify a sending domain** under [Domains](https://resend.com/domains) — Resend won't let you broadcast to an audience until at least one domain is verified.
+3. **Create an Audience** under [Audiences](https://resend.com/audiences). Copy the audience **UUID** (looks like `f9a1b2c3-...`).
+4. **Generate an API key** at [API Keys](https://resend.com/api-keys) with `Full access` (or at minimum `audiences:write`).
+5. **Copy `.env.example` to `.env`** at the repo root and fill in:
    ```env
-   RESEND_API_KEY="re_123456789..."
+   RESEND_API_KEY=re_xxxxxxxxxxxx
+   RESEND_AUDIENCE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
    ```
-3. Initialize and trigger email dispatches in `/app/api/subscribe/route.ts`:
-   ```typescript
-   import { Resend } from "resend";
+6. **Restart `npm run dev`** so `server.ts` picks up the new env vars.
 
-   const resend = new Resend(process.env.RESEND_API_KEY);
+### How it works
 
-   await resend.emails.send({
-     from: "CIZA Fans <newsletter@cizamusic.com>",
-     to: email,
-     subject: "Welcome to the Movement | CIZA Amapiano",
-     text: "Hi! Welcome to CIZA's core community...",
-   });
-   ```
+`POST /api/subscribe` validates the email, checks the honeypot, then calls:
+
+```
+POST https://api.resend.com/audiences/<RESEND_AUDIENCE_ID>/contacts
+Authorization: Bearer <RESEND_API_KEY>
+{ "email": "<user@example.com>", "unsubscribed": false }
+```
+
+On success the form shows `✓ You're in — check your inbox`. On failure it shows `Something broke — try again` and the server logs the Resend status code.
+
+### Vercel deploy
+
+In the Vercel project settings → **Environment Variables**, add `RESEND_API_KEY` and `RESEND_AUDIENCE_ID` for the **Production** (and Preview) environments. Redeploy. The Express server bundled by `npm run build` reads them via `process.env`.
 
 ---
 

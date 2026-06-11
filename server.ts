@@ -1,40 +1,64 @@
 import express from "express";
 import path from "path";
+import "dotenv/config";
 import { createServer as createViteServer } from "vite";
+
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 5180;
 
   // JSON parser middleware
   app.use(express.json());
 
   // API endpoints
-  app.post("/api/subscribe", (req, res) => {
-    const { email, name, coordinates } = req.body;
+  app.post("/api/subscribe", async (req, res) => {
+    const { email, website } = req.body ?? {};
 
-    // Server-side validation
-    if (!email || typeof email !== "string" || !email.trim() || !email.includes("@")) {
+    // Honeypot: bots fill this hidden field; pretend success.
+    if (typeof website === "string" && website.trim() !== "") {
+      return res.status(200).json({ success: true });
+    }
+
+    if (!email || typeof email !== "string" || !EMAIL_RE.test(email.trim())) {
       return res.status(400).json({ error: "Please provide a valid email address." });
     }
 
-    const sanitizedEmail = email.trim();
-    const sanitizedName = name ? String(name).trim() : "";
-    const sanitizedCoordinates = coordinates ? String(coordinates).trim() : "Not Provided";
+    const sanitizedEmail = email.trim().toLowerCase();
+    const apiKey = process.env.RESEND_API_KEY;
+    const audienceId = process.env.RESEND_AUDIENCE_ID;
 
-    console.log(`[CIZA FAN SIGNUP] New subscriber: Name: "${sanitizedName || "N/A"}", Email: "${sanitizedEmail}", Coordinates: "${sanitizedCoordinates}"`);
+    if (!apiKey || !audienceId) {
+      console.warn("[CIZA] Resend not configured. Logging signup only:", sanitizedEmail);
+      return res.status(500).json({ error: "Subscription service is not configured. Try again later." });
+    }
 
-    // TODO: Connect Resend API or another email provider here in production
-    // Example:
-    // const resend = new Resend(process.env.RESEND_API_KEY);
-    // await resend.emails.send({
-    //   from: 'CIZA Fans <newsletter@cizamusic.com>',
-    //   to: sanitizedEmail,
-    //   subject: 'Welcome to the Movement | CIZA Amapiano',
-    //   react: EmailTemplate({ firstName: sanitizedName }),
-    // });
+    try {
+      const resendRes = await fetch(
+        `https://api.resend.com/audiences/${audienceId}/contacts`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email: sanitizedEmail, unsubscribed: false }),
+        }
+      );
 
-    return res.status(200).json({ success: true, message: "Subscribed successfully!" });
+      if (!resendRes.ok) {
+        const detail = await resendRes.text().catch(() => "");
+        console.error(`[CIZA] Resend error ${resendRes.status}:`, detail);
+        return res.status(502).json({ error: "Could not add you to the list. Try again." });
+      }
+
+      console.log(`[CIZA FAN SIGNUP] Added to Resend audience: ${sanitizedEmail}`);
+      return res.status(200).json({ success: true, message: "Subscribed successfully!" });
+    } catch (err) {
+      console.error("[CIZA] Resend request failed:", err);
+      return res.status(502).json({ error: "Network error talking to Resend. Try again." });
+    }
   });
 
   // Vite middleware for rendering the SPA front-end
@@ -52,8 +76,9 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[CIZA Server] running at http://0.0.0.0:${PORT}`);
+  // Strict localhost binding — not exposed on LAN
+  app.listen(PORT, "127.0.0.1", () => {
+    console.log(`[CIZA Server] running at http://127.0.0.1:${PORT}`);
   });
 }
 
