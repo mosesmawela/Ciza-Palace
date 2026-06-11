@@ -1,123 +1,141 @@
-# CIZA | Premium Amapiano Fan Portal (LVRN Records)
+# CIZA · Palace
 
-A high-fidelity, visual-first fan hub for amapiano artist **CIZA** (signed to Love Renaissance). Designed with dark, atmospheric high-fashion layouts, responsive structures, and subscription components built for newsletters, tour alerts, and exclusive listenings.
+Official fan hub for **CIZA** — South African DJ, producer and recording artist. Afro House. 3-step. Amapiano without borders.
 
----
-
-## 🚀 Tech Stack
-- **Framework**: Next.js 14 (App Router) / React 19
-- **Styler**: Tailwind CSS (v3 / v4 Config)
-- **Language**: TypeScript
-- **Icons**: Lucide React
-- **Hosting / Deploy**: Vercel Ready
+→ **Live**: [ciza-palace.lvrn.dev](https://ciza-palace.lvrn.dev)
+→ **EPK**: [ciza.lvrn.dev](https://ciza.lvrn.dev)
 
 ---
 
-## 📂 Project Architecture
+## About
 
-This workspace contains two implementations mapped perfectly for your needs:
-1. **Next.js 14 Production Structure** (Under `/app` and `/components` directories), crafted exactly as requested so you can deploy straight to Vercel.
-2. **Standard Express + Vite Dev Container** (Under `/src` & `/server.ts`), enabling a fully functional live and interactive browser workspace immediately inside Google AI Studio.
+This is a cinematic single-page experience built around CIZA's catalogue, upcoming album *Ciza's Palace*, tour, press, and Inner Circle subscriber list. Designed as the public-facing entry point — separate from the booking/press EPK.
 
-```bash
-├── app/
-│   ├── api/
-│   │   └── subscribe/
-│   │       └── route.ts       # Next.js 14 API POST Route (w/ Resend TODO Stub)
-│   ├── globals.css            # Next.js global styling rules
-│   ├── layout.tsx             # HTML document wrappers & metadata
-│   └── page.tsx               # Primary editorial continuous scroll landing page
-├── components/
-│   └── SignupForm.tsx         # "use client" Newsletter Signup component
-├── src/
-│   ├── App.tsx                # Interactive local React/Vite layout
-│   ├── main.tsx               # Dev entry-point for Vite
-│   ├── index.css              # Local CSS rules
-│   └── assets/                # Generated visual media (CIZA cover/banner)
-├── server.ts                  # express-Vite proxy serving local `/api/subscribe`
-├── package.json               # dependencies config
-├── tailwind.config.ts         # scanned directories configuration
-└── README.md                  # This file
-```
+**Stack**
 
----
+- **Framework** · Vite + React 19 + TypeScript
+- **Styling** · Tailwind v4 + custom CSS for liquid-glass + chromatic effects
+- **Motion** · Framer Motion (Motion) + CSS `@property` + requestAnimationFrame for scroll-driven visuals
+- **Server** · Express (`/api/subscribe` proxy to Resend Audiences)
+- **Hosting** · Vercel (custom domain `ciza-palace.lvrn.dev`)
+- **Email** · Resend (audience-list capture)
 
-## ⚡ Running Locally
+## What's in the box
 
-### 1. Install Dependencies
-Run the following package install command in your project terminal:
+| Section | What it does |
+|---|---|
+| Hero | Wings logo, orbit rings, typewriter cycling through 7 lines about CIZA |
+| Marquee | Infinite scroll strip of stats and press credentials |
+| Bio | Editorial bio in a frosted glass card |
+| Album Preview | *Ciza's Palace* album countdown, 4 selected works grid |
+| Events | Tour placeholder — populates when dates announced |
+| Press | 9 verified press quotes with per-card typewriter reveal |
+| Inner Circle | Subscribe form with 4 tile breakdown (Tour · Live · Releases · Drops) |
+| Follow | Branded social pills with rotating border-beam |
+| EPK CTA | Routes to the booking/press EPK at `ciza.lvrn.dev` |
+| Sticky CTA | Mobile-only floating "View Full EPK" pill |
+
+## Signature interactions
+
+- **Scroll-driven focal blur** — the background canvas frames are uniformly blurred on landing; as you scroll, a radial mask opens a sharp circle at the centre, with blur strength decreasing from 32px to 10px
+- **Liquid nav bubble** — a single gold pill tracks the active section via IntersectionObserver, animates between tabs with springy ease
+- **Frosted-glass cards** — heavy `backdrop-filter` with drifting droplets, diagonal light-beam sweeps, click → bean-burst particle effect
+- **Rotating headlines** — key H2s ("In the Press → Conversation → Spotlight → Record") slide-up between phrases every 2.8s
+- **Conic-gradient border beams** — uses `@property --beam-angle` for smooth orbiting highlights around any rounded shape, no SVG dashes
+
+## Mobile performance
+
+Mobile is gated heavily — `(max-width: 720px), (pointer: coarse)`:
+
+- Canvas scroll frames disabled (static gradient fallback)
+- Focal blur overlay disabled
+- `backdrop-filter` blur strength reduced from 32px → 12px
+- Droplet animations + light-beam sweeps stripped
+- Orbit rings hidden
+- Magnetic cursor never mounts on touch
+
+## Development
+
 ```bash
 npm install
+npm run dev          # starts Vite + Express on http://127.0.0.1:5180
 ```
 
-### 2. Launch Local Dev Server
-To run the full-stack local server:
+The dev server binds strictly to `127.0.0.1` per project convention. Port 5180 is reserved for Ciza-Palace.
+
+## Environment
+
+`.env` is gitignored. Required keys:
+
+```
+RESEND_API_KEY=re_***                # Resend API key
+RESEND_AUDIENCE_ID=***               # Audience ID for subscriber capture
+RESEND_FROM_EMAIL=newsletter@ciza-palace.lvrn.dev
+APP_URL=https://ciza-palace.lvrn.dev
+```
+
+Set these in **Vercel → Project → Settings → Environment Variables** for production. Local `.env` does not deploy.
+
+## Deploy
+
 ```bash
-npm run dev
-```
-The server will start at `http://localhost:3000`. You can instantly interact with form inputs, receive inline validity alerts, and view terminal signup logs.
-
----
-
-## 🔗 Resend Audience Wiring (Newsletter Signup)
-
-The `/api/subscribe` endpoint in `server.ts` adds submitted emails to a **Resend Audience** (subscribed contacts list) so you can blast them about releases, events, and drops.
-
-### Setup checklist (do these once)
-
-1. **Create a Resend account** at [resend.com](https://resend.com).
-2. **Verify a sending domain** under [Domains](https://resend.com/domains) — Resend won't let you broadcast to an audience until at least one domain is verified.
-3. **Create an Audience** under [Audiences](https://resend.com/audiences). Copy the audience **UUID** (looks like `f9a1b2c3-...`).
-4. **Generate an API key** at [API Keys](https://resend.com/api-keys) with `Full access` (or at minimum `audiences:write`).
-5. **Copy `.env.example` to `.env`** at the repo root and fill in:
-   ```env
-   RESEND_API_KEY=re_xxxxxxxxxxxx
-   RESEND_AUDIENCE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-   ```
-6. **Restart `npm run dev`** so `server.ts` picks up the new env vars.
-
-### How it works
-
-`POST /api/subscribe` validates the email, checks the honeypot, then calls:
-
-```
-POST https://api.resend.com/audiences/<RESEND_AUDIENCE_ID>/contacts
-Authorization: Bearer <RESEND_API_KEY>
-{ "email": "<user@example.com>", "unsubscribed": false }
+vercel --prod --yes --force
 ```
 
-On success the form shows `✓ You're in — check your inbox`. On failure it shows `Something broke — try again` and the server logs the Resend status code.
+The `--force` flag is required for LVRN projects — Vercel sometimes ships empty 404 builds without it. After deploy, verify the alias:
 
-### Vercel deploy
+```bash
+curl -sI https://ciza-palace.lvrn.dev | head
+```
 
-In the Vercel project settings → **Environment Variables**, add `RESEND_API_KEY` and `RESEND_AUDIENCE_ID` for the **Production** (and Preview) environments. Redeploy. The Express server bundled by `npm run build` reads them via `process.env`.
+**This project must NOT have git auto-deploy enabled in Vercel** — CLI-only deploys to prevent empty-build 404s.
 
----
+## Project structure
 
-## ☁️ Deploying to Vercel
+```
+src/
+├── App.tsx                       Main page composition
+├── index.css                     Tailwind theme + beam + mobile perf gates
+├── main.tsx                      Vite entry
+├── assets/                       Local images
+├── hooks/
+│   └── useScrollVelocity.ts      rAF-driven velocity tracking
+└── components/
+    ├── LiquidNav.tsx             Bubble-tracking top nav
+    ├── ScrollFrameBackground.tsx Canvas frame painter + focal blur
+    ├── GlassCard.tsx             Frosted-glass card with droplets + bean-burst
+    ├── MagneticCursor.tsx        Custom cursor with magnetic pull
+    ├── AudioSwellOnScroll.tsx    Optional scroll-velocity audio
+    ├── CinematicReveal.tsx       FilmCutSection + KineticQuote helpers
+    ├── Marquee.tsx               Infinite scroll strip
+    ├── EyebrowBubble.tsx         Animated section-number bubble
+    ├── TypewriterCycle.tsx       Hero typewriter (loops)
+    ├── TypewriterQuote.tsx       Press-quote typewriter (one-shot)
+    ├── RotatingHeadline.tsx      Slide-up phrase rotator
+    ├── Countdown.tsx             Album release countdown
+    ├── ShareButton.tsx           navigator.share + clipboard fallback
+    ├── StickyMobileCTA.tsx       Floating mobile EPK pill
+    ├── SubscribeForm.tsx         Inner Circle form
+    └── SocialIcons.tsx           Brand-mark SVGs (Spotify · Apple · etc)
 
-### Option A: Vercel CLI (Super fast)
-1. Install globally and authenticate:
-   ```bash
-   npm install -g vercel
-   vercel login
-   ```
-2. Execute the deploy framework:
-   ```bash
-   vercel
-   ```
-3. Select defaults and assign your production build domain.
+public/
+├── logos/                        wings, wordmark, ciza-palace marks
+├── frames/                       Pre-extracted JPEG frames for scroll bg
+├── video/                        Source mp4/webm (legacy, frames preferred)
+└── favicon.svg                   Wings mark
+```
 
-### Option B: GitHub Integration (Recommended)
-1. Create a repository on GitHub and commit all changes:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initialize CIZA Fan Website"
-   git remote add origin YOUR_REPO_URL
-   git branch -M main
-   git push -u origin main
-   ```
-2. Open your [Vercel Dashboard](https://vercel.com/dashboard) and click **Add New Project**.
-3. Import your GitHub repository.
-4. Set **Next.js** as the Project Framework, configure any Environment Variables (like `RESEND_API_KEY`), and click **Deploy**.
+## Credits
+
+- **Artist** · [CIZA](https://open.spotify.com/artist/71hPkbyih5bdlHVPBgav33)
+- **Label** · [LVRN](https://lvrn.com)
+- **Design + Build** · Moses Mawela
+- **Typography** · Fraunces · Newsreader · Inter · JetBrains Mono (Google Fonts)
+
+## License
+
+© 2026 CIZA · LVRN. All rights reserved.
+
+This is a private artist project. The code, designs, copy, photography, and audio belong to CIZA and LVRN. Do not fork, redistribute, or use for commercial purposes without written permission.
+
+For licensing or partnership: **moses@lvrn.com**

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800;9..144,900&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap');
 
 @import "tailwindcss";
 
@@ -14,6 +14,8 @@
 
 @theme {
   --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Fraunces", "Newsreader", Georgia, serif;
+  --font-serif: "Newsreader", "Fraunces", Georgia, serif;
   --font-mono: "JetBrains Mono", monospace;
   --color-bg: var(--bg);
   --color-card: var(--bg-card);
@@ -24,15 +26,71 @@
   --color-accent: var(--accent);
 }
 
-@keyframes borderBeam {
-  0% { stroke-dashoffset: 200%; }
-  100% { stroke-dashoffset: 0%; }
+/* Smooth orbiting border beam — a soft conic-gradient highlight that
+   rotates around any rounded element, masked to the rim only.
+   Replaces the old dashed-stroke SVG beam which looked boxy on pills. */
+@property --beam-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
 }
 
-.animate-beam-path {
-  stroke-dasharray: 60, 180;
-  animation: borderBeam 6s linear infinite;
+@keyframes beamSpin { to { --beam-angle: 360deg; } }
+
+.beam-border { position: relative; }
+.beam-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.2px;
+  background: conic-gradient(
+    from var(--beam-angle),
+    transparent 0%,
+    rgba(245, 166, 35, 0) 5%,
+    rgba(245, 166, 35, 0.95) 12%,
+    rgba(245, 166, 35, 0) 22%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+          mask-composite: exclude;
+  pointer-events: none;
+  animation: beamSpin 5s linear infinite;
 }
+.beam-border-white::before {
+  background: conic-gradient(
+    from var(--beam-angle),
+    transparent 0%,
+    rgba(255, 255, 255, 0) 5%,
+    rgba(255, 255, 255, 0.95) 12%,
+    rgba(255, 255, 255, 0) 22%,
+    transparent 100%
+  );
+}
+.beam-border-blue::before {
+  background: conic-gradient(
+    from var(--beam-angle),
+    transparent 0%,
+    rgba(30, 144, 255, 0) 5%,
+    rgba(30, 144, 255, 0.95) 12%,
+    rgba(30, 144, 255, 0) 22%,
+    transparent 100%
+  );
+}
+.beam-border-slow::before { animation-duration: 7s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .beam-border::before { animation: none !important; opacity: 0; }
+}
+
+/* Legacy class — kept until all callsites migrated, no-op stroke */
+.animate-beam-path { display: none; }
 
 html {
   scroll-behavior: smooth;
@@ -61,3 +119,38 @@ body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 3px; }
+
+/* Unified focus-visible treatment — keyboard-only, no mouse outline */
+*:focus { outline: none; }
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+  transition: outline-offset 0.18s ease;
+}
+
+/* Mobile performance — strip expensive effects on small screens.
+   backdrop-filter blur is brutal on mobile GPUs; reduce or remove.
+   Heavy animations (orbit rings, marquee, beam) get gentler timing. */
+@media (max-width: 720px), (pointer: coarse) {
+  /* Lighter frosted blur on glass cards */
+  .glass-card { backdrop-filter: blur(12px) saturate(140%) !important; -webkit-backdrop-filter: blur(12px) saturate(140%) !important; }
+  /* Disable the slow drifting droplets and the light-beam sweep — pure overdraw on mobile */
+  .glass-card svg circle { display: none; }
+  .frost-glass-beam { display: none; }
+  /* Kill orbit rings (extra layers) */
+  .orbit-ring { display: none !important; }
+  /* Slower beam loops conserve battery */
+  .beam-border::before { animation-duration: 7s !important; }
+  /* Disable backdrop-filter on liquid nav — too expensive on iOS Safari */
+  nav.backdrop-blur-md { backdrop-filter: blur(8px) !important; -webkit-backdrop-filter: blur(8px) !important; background-color: rgba(0,0,0,0.7) !important; }
+}
+
+/* Reduce motion blanket — kill any heavy animation we missed */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -132,7 +132,7 @@ export default function SubscribeForm() {
           ref={buttonRef}
           type="submit"
           disabled={status === "loading"}
-          className="px-6 py-3 bg-accent text-bg rounded-full text-xs uppercase tracking-widest font-bold hover:bg-accent/90 disabled:opacity-50 transition-all"
+          className="beam-border beam-border-white px-6 py-3 bg-accent text-bg rounded-full text-xs uppercase tracking-widest font-bold hover:bg-accent/90 disabled:opacity-50 transition-all"
         >
           {status === "loading" ? "..." : status === "ok" ? "✓ In" : "Submit"}
         </button>
