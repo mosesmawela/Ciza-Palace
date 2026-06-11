@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
 import InnerCircleGate from "./components/InnerCircleGate";
+import TourSection from "./components/TourSection";
 import cizaPortrait from "./assets/images/ciza_roman_gold_1781179874045.png";
 import ScrollFrameBackground from "./components/ScrollFrameBackground";
 import MagneticCursor from "./components/MagneticCursor";
@@ -354,64 +355,9 @@ export default function App() {
         </div>
       </section>
 
-      <section id="events" className="max-w-4xl mx-auto px-6 py-32">
-        <ScrollReveal>
-          <GlassCard className="p-8 md:p-12">
-            <Eyebrow>04 · Tour 2026</Eyebrow>
-            <div className="flex items-end justify-between flex-wrap gap-4 mb-10">
-              <h2 className="text-4xl md:text-5xl font-black tracking-tight leading-[0.95]">
-                The Palace
-                <br />
-                <span className="text-accent">Goes Global</span>
-              </h2>
-              <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted/85">
-                Routing · May → Sept 2026
-              </div>
-            </div>
-            <div className="space-y-px border-t border-white/10">
-              {[
-                { date: "30 May", city: "Lisbon, PT", venue: "MOGA Festival", flag: "🇵🇹" },
-                { date: "3 – 5 Jun", city: "Lagos, NG", venue: "Element House", flag: "🇳🇬" },
-                { date: "7 – 11 Jun", city: "Mexico", venue: "Tour Week", flag: "🇲🇽" },
-                { date: "14 – 22 Jun", city: "USA", venue: "Tour Run", flag: "🇺🇸" },
-                { date: "23 – 30 Jun", city: "London, UK", venue: "Tour Week", flag: "🇬🇧" },
-                { date: "5 Jul", city: "Durban, ZA", venue: "Homecoming", flag: "🇿🇦" },
-                { date: "10 Aug", city: "Ibiza, ES", venue: "Hï Ibiza", flag: "🇪🇸" },
-                { date: "16 Aug", city: "Netherlands", venue: "Latin Village Festival", flag: "🇳🇱" },
-                { date: "18 Sep", city: "Angola", venue: "TBA", flag: "🇦🇴" },
-              ].map((show, i) => (
-                <div
-                  key={i}
-                  className="grid grid-cols-12 gap-3 py-5 border-b border-white/10 items-center"
-                >
-                  <div className="col-span-3 md:col-span-2 font-mono text-[11px] md:text-xs uppercase tracking-[0.18em] text-accent">
-                    {show.date}
-                  </div>
-                  <div className="col-span-5 md:col-span-5 flex items-center gap-2.5 text-fg/95 text-sm md:text-base">
-                    <span aria-hidden className="text-base md:text-lg">{show.flag}</span>
-                    <span>{show.city}</span>
-                  </div>
-                  <div className="col-span-4 md:col-span-3 text-muted text-xs md:text-sm font-light">
-                    {show.venue}
-                  </div>
-                  <div className="hidden md:block md:col-span-2 text-right">
-                    <span className="text-[10px] uppercase tracking-[0.25em] text-muted/70">
-                      Notify Me
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="mt-8 text-xs md:text-sm text-muted/85 leading-relaxed">
-              Cities, venues and ticket links update as each leg is announced.{" "}
-              <a href="#subscribe" className="text-accent hover:text-white transition-colors">
-                Join the Inner Circle
-              </a>{" "}
-              for presale codes before public on-sale.
-            </p>
-          </GlassCard>
-        </ScrollReveal>
-      </section>
+      <ScrollReveal>
+        <TourSection />
+      </ScrollReveal>
 
       <section id="press" className="max-w-5xl mx-auto px-6 py-32">
         <ScrollReveal>
