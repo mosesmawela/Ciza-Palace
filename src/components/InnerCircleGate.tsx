@@ -140,7 +140,7 @@ export default function InnerCircleGate({
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[80] flex items-center justify-center px-5 py-10 overflow-y-auto"
+      className="fixed inset-0 z-[80] flex items-center justify-center px-5 py-6 overflow-y-auto"
       style={{
         background:
           "radial-gradient(ellipse at 50% 30%, rgba(10,10,12,0.55) 0%, rgba(8,8,10,0.85) 60%, rgba(5,5,7,0.95) 100%)",
@@ -160,9 +160,9 @@ export default function InnerCircleGate({
       aria-modal="true"
       aria-labelledby="gate-heading"
     >
-      <div className="relative w-full max-w-[520px] flex flex-col items-center text-center">
+      <div className="relative w-full max-w-[460px] flex flex-col items-center text-center">
         {/* Wings mark at the top — with a single expanding ring on enter */}
-        <div className="relative inline-flex items-center justify-center mb-7">
+        <div className="relative inline-flex items-center justify-center mb-4">
           <span
             aria-hidden
             className="enter-pulse-ring"
@@ -171,37 +171,37 @@ export default function InnerCircleGate({
           <img
             src="/logos/wings.svg"
             alt="CIZA"
-            className="relative w-28 md:w-36 h-auto opacity-95 wings-entry"
-            style={{ filter: "drop-shadow(0 6px 30px rgba(245,166,35,0.25))" }}
+            className="relative w-20 md:w-24 h-auto opacity-95 wings-entry"
+            style={{ filter: "drop-shadow(0 5px 22px rgba(245,166,35,0.25))" }}
           />
         </div>
 
         {/* Avatar + greeting row */}
-        <div className="flex flex-col items-center gap-3 mb-6">
+        <div className="flex flex-col items-center gap-2 mb-4">
           <div className="relative">
             <img
               src={PORTRAIT_SRC}
               alt=""
               aria-hidden
               loading="eager"
-              className="w-14 h-14 md:w-16 md:h-16 rounded-full object-cover border-2 border-accent/55"
+              className="w-11 h-11 md:w-12 md:h-12 rounded-full object-cover border-2 border-accent/55"
               style={{
                 boxShadow:
-                  "0 0 0 4px rgba(10,10,10,0.6), 0 8px 24px -8px rgba(245,166,35,0.45)",
+                  "0 0 0 3px rgba(10,10,10,0.6), 0 6px 18px -8px rgba(245,166,35,0.45)",
               }}
             />
             {/* Online dot */}
             <span
               aria-hidden
-              className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-[#23d160] border-2 border-[#0a0a0a]"
+              className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#23d160] border-2 border-[#0a0a0a]"
             />
           </div>
-          <div className="font-mono text-[10px] uppercase tracking-[0.4em] text-accent/85">
+          <div className="font-mono text-[9px] uppercase tracking-[0.4em] text-accent/85">
             A note from the Don
           </div>
           <h1
             id="gate-heading"
-            className="font-display text-3xl md:text-4xl leading-[1.1] text-fg"
+            className="font-display text-[26px] md:text-[30px] leading-[1.1] text-fg"
             style={{ letterSpacing: "-0.005em" }}
           >
             Hey Cizarian,
@@ -211,8 +211,8 @@ export default function InnerCircleGate({
         {/* Typed message — tap to skip the typewriter */}
         <div
           onClick={skipType}
-          className="cursor-text mb-7 max-w-[460px] text-left md:text-center"
-          style={{ minHeight: "210px" }}
+          className="cursor-text mb-5 max-w-[420px] text-left md:text-center"
+          style={{ minHeight: "168px" }}
         >
           {paragraphs.map((p, i) => {
             if (p === "") return <div key={i} style={{ height: "0.6em" }} />;
@@ -223,14 +223,14 @@ export default function InnerCircleGate({
             return (
               <p
                 key={i}
-                className={`leading-[1.65] ${
+                className={`leading-[1.55] ${
                   isHook
-                    ? "text-accent font-medium text-base md:text-[17px] mb-1"
+                    ? "text-accent font-medium text-[14px] md:text-[15px] mb-0.5"
                     : isPunch
-                    ? "text-fg italic text-[15px] md:text-base"
+                    ? "text-fg italic text-[13px] md:text-[14px]"
                     : isSignoff
-                    ? "text-fg/70 text-[13px] md:text-sm font-mono uppercase tracking-[0.18em]"
-                    : "text-fg/85 text-[14px] md:text-[15px] font-light"
+                    ? "text-fg/70 text-[11px] md:text-[12px] font-mono uppercase tracking-[0.18em]"
+                    : "text-fg/85 text-[12.5px] md:text-[13.5px] font-light"
                 }`}
               >
                 {p}
@@ -251,7 +251,7 @@ export default function InnerCircleGate({
         <form
           ref={formRef}
           onSubmit={onSubmit}
-          className="w-full flex flex-col gap-3 mb-5"
+          className="w-full flex flex-col gap-2.5 mb-4"
         >
           <input
             type="text"
@@ -274,13 +274,13 @@ export default function InnerCircleGate({
             required
             autoComplete="email"
             disabled={status === "loading" || status === "ok"}
-            className="w-full bg-white/[0.04] border border-white/15 rounded-full px-5 py-3.5 text-sm text-fg placeholder:text-muted focus:outline-none focus:border-accent transition-colors disabled:opacity-60"
+            className="w-full bg-white/[0.04] border border-white/15 rounded-full px-5 py-3 text-[13px] text-fg placeholder:text-muted focus:outline-none focus:border-accent transition-colors disabled:opacity-60"
             style={{ textAlign: "center" }}
           />
           <button
             type="submit"
             disabled={status === "loading" || status === "ok"}
-            className="beam-border beam-border-white w-full px-6 py-3.5 bg-accent text-bg rounded-full text-[11px] uppercase tracking-[0.3em] font-bold hover:bg-accent/90 disabled:opacity-50 transition-all"
+            className="beam-border beam-border-white w-full px-6 py-3 bg-accent text-bg rounded-full text-[10px] uppercase tracking-[0.3em] font-bold hover:bg-accent/90 disabled:opacity-50 transition-all"
           >
             {status === "loading"
               ? "..."
@@ -302,7 +302,7 @@ export default function InnerCircleGate({
         </form>
 
         {/* Divider */}
-        <div className="flex items-center gap-3 w-full max-w-[260px] my-1 mb-5">
+        <div className="flex items-center gap-3 w-full max-w-[240px] mb-3">
           <span className="flex-1 h-px bg-white/10" />
           <span className="font-mono text-[9px] uppercase tracking-[0.35em] text-muted/70">
             or
@@ -314,7 +314,7 @@ export default function InnerCircleGate({
         <button
           type="button"
           onClick={enter}
-          className="text-[11px] uppercase tracking-[0.35em] font-mono text-fg/70 hover:text-accent transition-colors py-2 px-2 inline-flex items-center gap-2 group"
+          className="text-[10px] uppercase tracking-[0.35em] font-mono text-fg/70 hover:text-accent transition-colors py-1.5 px-2 inline-flex items-center gap-2 group"
         >
           <span>Enter the Palace</span>
           <span
@@ -326,7 +326,7 @@ export default function InnerCircleGate({
         </button>
 
         {/* Footer hint */}
-        <p className="mt-7 font-mono text-[9px] uppercase tracking-[0.35em] text-muted/55">
+        <p className="mt-4 font-mono text-[9px] uppercase tracking-[0.35em] text-muted/55">
           No spam · Real updates only
         </p>
       </div>
