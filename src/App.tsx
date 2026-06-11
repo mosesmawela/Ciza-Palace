@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "motion/react";
+import InnerCircleGate from "./components/InnerCircleGate";
 import cizaPortrait from "./assets/images/ciza_roman_gold_1781179874045.png";
 import ScrollFrameBackground from "./components/ScrollFrameBackground";
 import MagneticCursor from "./components/MagneticCursor";
@@ -93,9 +94,22 @@ function ScrollReveal({
 
 export default function App() {
   const featured = cizaContent.top_tracks[0];
+  const [gateOpen, setGateOpen] = useState(false);
+
+  // Lock page scroll while the gate is closed so the experience feels
+  // contained — full site is mounted underneath, but visitors can't
+  // accidentally scroll into it before entering.
+  React.useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = gateOpen ? prev || "" : "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [gateOpen]);
 
   return (
     <div className="bg-grain min-h-screen text-fg">
+      {!gateOpen && <InnerCircleGate onEnter={() => setGateOpen(true)} />}
       <MagneticCursor />
       <AudioSwellOnScroll />
       <ScrollFrameBackground poster={cizaPortrait} />
