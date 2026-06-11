@@ -34,12 +34,13 @@ export default function GlassCard({
   };
 
   const Tag = as;
-  // Heavy frost across the board now — matches the press-card density
-  const blur = intensity === "strong" ? 32 : 26;
+  // Heavy frost — opacity bumped so text reads cleanly against the
+  // canvas frames and focal blur behind every card.
+  const blur = intensity === "strong" ? 34 : 28;
   const bg =
     intensity === "strong"
-      ? "rgba(20, 20, 22, 0.42)"
-      : "rgba(20, 20, 22, 0.34)";
+      ? "rgba(18, 18, 22, 0.62)"
+      : "rgba(18, 18, 22, 0.52)";
 
   return (
     <Tag
