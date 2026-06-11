@@ -149,7 +149,10 @@ export default function ScrollFrameBackground(_props: { poster?: string } = {}) 
       if (blurEl) {
         // Use 0..0.5 window for the focal-open animation; after 0.5 keep state stable
         const focal = Math.min(1, targetProgress / 0.5);
-        const blurAmt = 32 - focal * 22; // 32 → 10
+        // Mobile uses a tamer blur range so the GPU can sustain it
+        const maxBlur = isMobile ? 20 : 32;
+        const minBlur = isMobile ? 6 : 10;
+        const blurAmt = maxBlur - focal * (maxBlur - minBlur);
         const innerR = focal * 38; // 0 → 38% transparent radius
         const outerR = 60 + focal * 35; // 60 → 95% blur falloff edge
         blurEl.style.backdropFilter = `blur(${blurAmt.toFixed(1)}px) saturate(115%)`;
@@ -231,32 +234,28 @@ export default function ScrollFrameBackground(_props: { poster?: string } = {}) 
       )}
 
       {/* Focal scroll-blur overlay — sits above the canvas, blurs it
-          through backdrop-filter. Initially uniform 32px blur over the
+          through backdrop-filter. Initially uniform blur over the
           whole screen. As user scrolls, a radial-gradient mask opens
           a transparent circle at the center (CIZA wordmark) and the
-          blur strength drops from 32 → 10px. Sides remain softly
-          blurred at the end. */}
-      {!isMobile && (
-        <div
-          ref={blurRef}
-          aria-hidden
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: -1,
-            pointerEvents: "none",
-            backdropFilter: "blur(32px) saturate(115%)",
-            WebkitBackdropFilter: "blur(32px) saturate(115%)",
-            // Initial mask: black everywhere = blur visible everywhere
-            mask: "radial-gradient(circle at 50% 42%, transparent 0%, transparent 0%, black 60%)",
-            WebkitMaskImage:
-              "radial-gradient(circle at 50% 42%, transparent 0%, transparent 0%, black 60%)",
-            transition: reducedMotion
-              ? "none"
-              : "backdrop-filter 120ms linear",
-          }}
-        />
-      )}
+          blur strength drops. Mobile uses 20px max / 6px min;
+          desktop uses 32px max / 10px min. */}
+      <div
+        ref={blurRef}
+        aria-hidden
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: -1,
+          pointerEvents: "none",
+          backdropFilter: `blur(${isMobile ? 20 : 32}px) saturate(115%)`,
+          WebkitBackdropFilter: `blur(${isMobile ? 20 : 32}px) saturate(115%)`,
+          // Initial mask: black everywhere = blur visible everywhere
+          mask: "radial-gradient(circle at 50% 42%, transparent 0%, transparent 0%, black 60%)",
+          WebkitMaskImage:
+            "radial-gradient(circle at 50% 42%, transparent 0%, transparent 0%, black 60%)",
+          transition: reducedMotion ? "none" : "backdrop-filter 120ms linear",
+        }}
+      />
 
       {/* Faint top/bottom vignette for content legibility */}
       <div
