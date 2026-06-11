@@ -18,8 +18,6 @@ type Props = {
   onClick?: () => void;
 };
 
-const BEAN_COLORS = ["#f5f5f5", "#F5A623", "#f5f5f5", "#f5f5f5"];
-
 export default function GlassCard({
   children,
   className = "",
@@ -31,70 +29,8 @@ export default function GlassCard({
   const ref = useRef<HTMLDivElement | null>(null);
   const uid = useId().replace(/:/g, "");
 
-  const handleClick = (e: MouseEvent<HTMLDivElement>) => {
-    const reduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
+  const handleClick = (_e: MouseEvent<HTMLDivElement>) => {
     onClick?.();
-    if (reduced) return;
-    const host = ref.current;
-    if (!host) return;
-    const rect = host.getBoundingClientRect();
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
-    const burst = document.createElement("div");
-    burst.style.cssText = `position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:5;`;
-    host.appendChild(burst);
-
-    const count = 14;
-    for (let i = 0; i < count; i++) {
-      const bean = document.createElement("div");
-      const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
-      const dist = 60 + Math.random() * 90;
-      const dx = Math.cos(angle) * dist;
-      const dy = Math.sin(angle) * dist;
-      const rot = (Math.random() - 0.5) * 180;
-      const w = 10 + Math.random() * 6;
-      const h = 18 + Math.random() * 8;
-      const color = BEAN_COLORS[i % BEAN_COLORS.length];
-      bean.style.cssText = `
-        position:absolute;
-        left:${cx}px;top:${cy}px;
-        width:${w}px;height:${h}px;
-        background:${color};
-        border-radius:50%;
-        opacity:0.85;
-        transform:translate(-50%,-50%) rotate(${angle * 57.3}deg) scale(0.3);
-        box-shadow:0 0 14px ${color}aa, inset 0 -2px 4px rgba(0,0,0,0.2), inset 0 2px 3px rgba(255,255,255,0.4);
-        transition:transform 880ms cubic-bezier(0.18, 0.9, 0.32, 1.2), opacity 880ms ease-out;
-        will-change:transform,opacity;
-      `;
-      burst.appendChild(bean);
-      requestAnimationFrame(() => {
-        bean.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy + 30}px)) rotate(${rot}deg) scale(1)`;
-        bean.style.opacity = "0";
-      });
-    }
-
-    // Glass ripple
-    const ripple = document.createElement("div");
-    ripple.style.cssText = `
-      position:absolute;left:${cx}px;top:${cy}px;
-      width:8px;height:8px;border-radius:50%;
-      border:1.5px solid rgba(255,255,255,0.7);
-      transform:translate(-50%,-50%) scale(0.4);
-      opacity:0.9;
-      transition:transform 760ms cubic-bezier(0.22,1,0.36,1),opacity 760ms ease-out;
-      will-change:transform,opacity;
-      pointer-events:none;
-    `;
-    burst.appendChild(ripple);
-    requestAnimationFrame(() => {
-      ripple.style.transform = `translate(-50%,-50%) scale(28)`;
-      ripple.style.opacity = "0";
-    });
-
-    setTimeout(() => burst.remove(), 1000);
   };
 
   const Tag = as;

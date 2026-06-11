@@ -14,36 +14,7 @@ export default function SubscribeForm() {
   const formRef = useRef<HTMLFormElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
 
-  const burst = () => {
-    const btn = buttonRef.current;
-    if (!btn) return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduced) return;
-    const rect = btn.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const container = document.createElement("div");
-    container.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:9999;";
-    document.body.appendChild(container);
-
-    const count = 28;
-    for (let i = 0; i < count; i++) {
-      const p = document.createElement("div");
-      const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
-      const speed = 90 + Math.random() * 110;
-      const dx = Math.cos(angle) * speed;
-      const dy = Math.sin(angle) * speed;
-      const colors = ["#F5A623", "#1E90FF", "#f5f5f5"];
-      const color = colors[i % colors.length];
-      p.style.cssText = `position:absolute;left:${cx}px;top:${cy}px;width:6px;height:6px;border-radius:50%;background:${color};box-shadow:0 0 12px ${color};transition:transform 1100ms cubic-bezier(0.22,1,0.36,1),opacity 1100ms ease-out;will-change:transform,opacity;`;
-      container.appendChild(p);
-      requestAnimationFrame(() => {
-        p.style.transform = `translate3d(${dx}px, ${dy + 60}px, 0) scale(0.3)`;
-        p.style.opacity = "0";
-      });
-    }
-    setTimeout(() => container.remove(), 1300);
-  };
+  // Particle burst removed — felt like confetti, not on-brand
 
   const onFocus = () => {
     document.body.classList.add("subscribe-focused");
@@ -59,8 +30,12 @@ export default function SubscribeForm() {
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const fd = new FormData(e.currentTarget);
+    // Capture refs BEFORE the await — React pools synthetic events,
+    // so e.currentTarget can be null by the time the promise resolves.
+    const form = e.currentTarget;
+    const fd = new FormData(form);
     const email = fd.get("email")?.toString().trim();
+    const website = fd.get("website");
     if (!email) {
       setStatus("err");
       setMessage("Need an email first.");
@@ -71,14 +46,14 @@ export default function SubscribeForm() {
       const res = await fetch("/api/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, website: fd.get("website") }),
+        body: JSON.stringify({ email, website }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");
       setStatus("ok");
       setMessage("✓ You're in. First access, no spam.");
-      burst();
-      (e.currentTarget as HTMLFormElement).reset();
+      // Use the captured form ref (or fall back to formRef) — never e.currentTarget
+      (formRef.current ?? form)?.reset();
       setTimeout(() => {
         document.body.classList.remove("subscribe-focused");
         formRef.current?.classList.remove("subscribe-form-focused");

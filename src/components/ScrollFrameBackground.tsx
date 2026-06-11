@@ -8,9 +8,12 @@ import { useEffect, useRef, useState } from "react";
  *
  * Pattern: same one Apple/Stripe scroll sequences use.
  */
-const FRAME_COUNT = 59;
-const framePath = (i: number) =>
+const DESKTOP_FRAMES = 59;
+const MOBILE_FRAMES = 26;
+const desktopFramePath = (i: number) =>
   `/frames/frame_${String(i + 1).padStart(3, "0")}.jpg`;
+const mobileFramePath = (i: number) =>
+  `/frames-mobile/frame_${String(i + 1).padStart(3, "0")}.jpg`;
 
 export default function ScrollFrameBackground(_props: { poster?: string } = {}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -36,25 +39,30 @@ export default function ScrollFrameBackground(_props: { poster?: string } = {}) 
     };
   }, []);
 
-  // Pre-load all frames
+  // Frame source — swaps between desktop (16:9) and mobile (9:16) sets
+  const frameCount = isMobile ? MOBILE_FRAMES : DESKTOP_FRAMES;
+  const framePath = isMobile ? mobileFramePath : desktopFramePath;
+
+  // Pre-load all frames (mobile + desktop both run this)
   useEffect(() => {
-    if (isMobile) return;
+    setReady(false);
+    setLoadedCount(0);
     let cancelled = false;
     const images: HTMLImageElement[] = [];
     let loaded = 0;
-    for (let i = 0; i < FRAME_COUNT; i++) {
+    for (let i = 0; i < frameCount; i++) {
       const img = new Image();
       img.src = framePath(i);
       img.onload = () => {
         if (cancelled) return;
         loaded += 1;
         setLoadedCount(loaded);
-        if (loaded === FRAME_COUNT) setReady(true);
+        if (loaded === frameCount) setReady(true);
       };
       img.onerror = () => {
         loaded += 1;
         setLoadedCount(loaded);
-        if (loaded === FRAME_COUNT) setReady(true);
+        if (loaded === frameCount) setReady(true);
       };
       images.push(img);
     }
@@ -62,11 +70,11 @@ export default function ScrollFrameBackground(_props: { poster?: string } = {}) 
     return () => {
       cancelled = true;
     };
-  }, [isMobile]);
+  }, [isMobile, frameCount, framePath]);
 
-  // Paint loop
+  // Paint loop — runs on both desktop AND mobile (mobile gets portrait frames)
   useEffect(() => {
-    if (isMobile || !ready) return;
+    if (!ready) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -110,8 +118,8 @@ export default function ScrollFrameBackground(_props: { poster?: string } = {}) 
           ? Math.max(0, Math.min(1, window.scrollY / maxScroll))
           : 0;
       const idx = Math.min(
-        FRAME_COUNT - 1,
-        Math.floor(progress * (FRAME_COUNT - 1))
+        frameCount - 1,
+        Math.floor(progress * (frameCount - 1))
       );
       if (idx !== lastIdx) {
         lastIdx = idx;
@@ -176,24 +184,23 @@ export default function ScrollFrameBackground(_props: { poster?: string } = {}) 
         }}
       />
 
-      {!isMobile && (
-        <canvas
-          ref={canvasRef}
-          aria-hidden="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            zIndex: -2,
-            opacity: ready ? 1 : 0,
-            transition: "opacity 600ms ease",
-            pointerEvents: "none",
-          }}
-        />
-      )}
+      <canvas
+        ref={canvasRef}
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          zIndex: -2,
+          opacity: ready ? 1 : 0,
+          transition: "opacity 600ms ease",
+          pointerEvents: "none",
+        }}
+      />
 
-      {isMobile && (
+      {/* Loading fallback gradient while frames preload */}
+      {!ready && (
         <div
           aria-hidden
           style={{
@@ -248,7 +255,7 @@ export default function ScrollFrameBackground(_props: { poster?: string } = {}) 
       />
 
       {/* Loading indicator (only shown until all frames preload) */}
-      {!isMobile && !ready && loadedCount > 0 && loadedCount < FRAME_COUNT && (
+      {!isMobile && !ready && loadedCount > 0 && loadedCount < frameCount && (
         <div
           aria-hidden
           style={{
@@ -262,7 +269,7 @@ export default function ScrollFrameBackground(_props: { poster?: string } = {}) 
             fontFamily: "monospace",
           }}
         >
-          LOADING · {Math.floor((loadedCount / FRAME_COUNT) * 100)}%
+          LOADING · {Math.floor((loadedCount / frameCount) * 100)}%
         </div>
       )}
     </>

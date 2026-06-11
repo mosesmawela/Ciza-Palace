@@ -23,7 +23,7 @@ const cizaContent = {
   top_tracks: [
     { name: "Isaka (6am)", spotify_url: "https://open.spotify.com/track/7c5uGV9Rys18JP2570ykTu", cover_url: "https://ik.imagekit.io/iwuf0njwbf/LVRN/isaka-6am.webp", streams: "ft. Jazzworx & Thukuthela · 140M+ streams" },
     { name: "Isaka II (6am)", spotify_url: "https://open.spotify.com/track/4lz4aKs60vUoyZP4pNy3aD", cover_url: "https://ik.imagekit.io/iwuf0njwbf/LVRN/isaka-ii-tems-omah-lay.webp", streams: "w/ Tems, Omah Lay · 50M+ streams" },
-    { name: "Yivule", spotify_url: "https://open.spotify.com/track/783s9jQYL85ipURwgyIB6I", cover_url: "https://ik.imagekit.io/iwuf0njwbf/LVRN/yivule.webp", streams: "Ciza's Palace · April 2026" },
+    { name: "Yivule", spotify_url: "https://open.spotify.com/track/783s9jQYL85ipURwgyIB6I", cover_url: "https://ik.imagekit.io/iwuf0njwbf/LVRN/yivule.webp", streams: "Ciza's Palace · Coming Soon" },
     { name: "Mngani Wam", spotify_url: "https://open.spotify.com/track/00ZJMP9jkShSJcmCufqOlj", cover_url: "https://ik.imagekit.io/iwuf0njwbf/LVRN/mngani-wam.webp", streams: "w/ Oscar Mbo, Makhanj, Mpho.Wav, Danya Devs" },
   ],
   press_quotes: [
@@ -224,7 +224,7 @@ export default function App() {
             { label: "50M+ Streams · Isaka II w/ Tems, Omah Lay" },
             { label: "Turntable Charts · 2026 Cover", accent: true },
             { label: "Culture Custodian · 2025 Feature" },
-            { label: "Ciza's Palace · LP April 2026", accent: true },
+            { label: "Ciza's Palace · LP Coming Soon", accent: true },
             { label: "Afro House · 3-Step · Amapiano" },
           ]}
         />
@@ -284,7 +284,7 @@ export default function App() {
                   CIZA'S PALACE
                   <br />
                   <RotatingHeadline
-                    phrases={["Preview", "Coming Soon", "On the Way", "April 2026"]}
+                    phrases={["Coming Soon", "On the Way"]}
                     className="text-accent italic"
                   />
                 </h2>
