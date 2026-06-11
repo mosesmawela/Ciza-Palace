@@ -1,7 +1,13 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 const SITE_URL = "https://ciza-palace.lvrn.dev";
-const QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=480x480&margin=12&bgcolor=0a0a0a&color=F5A623&data=${encodeURIComponent(SITE_URL)}`;
+const SHORT_URL = "https://r.lvrn.dev/ciza-epk-fan-hub";
+// QR is generated via the LVRN-QR CLI (lvrn-qr/cli/lvrn_qr.py) and
+// committed to public/qr/. Encodes the r.lvrn.dev short link so the
+// destination can be re-routed in lvrn-qr/redirects/links.json without
+// re-printing anything that's already in the wild.
+const QR_SRC = "/qr/ciza-palace.png";
+const QR_SVG = "/qr/ciza-palace.svg";
 
 /**
  * Inner Circle gate — the simple, intimate landing surface.
