@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CIZA · Promo Composition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&family=Fraunces:ital,wght@1,500;1,600&display=swap" rel="stylesheet" />
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+<style>
+  :root { --gold:#F5A623; --bg:#0a0a0a; --fg:#f5f5f5; --blue:#1E90FF; }
+  html,body{margin:0;padding:0;background:#000;color:var(--fg);font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  body { overflow: hidden; }
+  /* Hide Stage scrubber + controls during recording — render-video.js sets __recording */
+  .no-record { transition: opacity 200ms; }
+  body.recording .no-record { display: none !important; }
+  body.still-mode .no-record { display: none !important; }
+  /* Grain overlay */
+  .grain { position: absolute; inset: 0; pointer-events:none; opacity:0.06; mix-blend-mode:overlay;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.7'/%3E%3C/svg%3E");
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Vendored skill engine: Stage / Sprite / useTime / Easing / interpolate -->
+<script type="text/babel" src="./assets/animations.jsx"></script>
+
+<script type="text/babel">
+const { Stage, Sprite, useTime, useSprite, Easing, interpolate } = window.Animations;
+const { useEffect, useState, useMemo } = React;
+
+// =================== URL params ===================
+const params = new URLSearchParams(window.location.search);
+const ASPECT = params.get("aspect") || "9-16";              // "9-16" or "16-9"
+const DURATION = parseFloat(params.get("duration") || "30");// 15 or 30
+const SCENES = (params.get("scenes") || "1,2,3,4,5,6,7").split(",").map(s => parseInt(s,10));
+const STILL_MODE = params.get("still") === "1";
+const STILL_T = STILL_MODE ? 1 : null; // legacy gate variable kept truthy in still mode
+const [W, H] = ASPECT === "9-16" ? [1080, 1920] : [1920, 1080];
+
+if (STILL_MODE) document.body.classList.add("still-mode");
+
+// =================== Asset paths ===================
+const WINGS = "./assets/wings.svg";
+const WORDMARK = "./assets/wordmark-white.svg";
+const QR_IMG = "./assets/qr.png";
+const CIZA_PORTRAIT = "./assets/ciza-portrait.jpg";
+const FRAMES_LAND = Array.from({length:15}, (_,i)=> `./assets/frames-landscape/frame_${String(1 + i*8).padStart(3,"0")}.jpg`);
+const FRAMES_PORT = Array.from({length:20}, (_,i)=> `./assets/frames-portrait/frame_${String(1 + i*4).padStart(3,"0")}.jpg`);
+const FRAMES = (ASPECT === "9-16") ? FRAMES_PORT : FRAMES_LAND;
+
+// =================== Tour data (single source: matches src/data/tourDates.ts) ===================
+const TOUR = [
+  { d: "30 May", c: "Lisbon, PT",    v: "MOGA Festival",          f: "🇵🇹" },
+  { d: "3 – 5 Jun", c: "Lagos, NG",  v: "Element House",          f: "🇳🇬" },
+  { d: "7 – 11 Jun", c: "Mexico",    v: "Tour Week",              f: "🇲🇽" },
+  { d: "14 – 22 Jun", c: "USA",      v: "Tour Run",               f: "🇺🇸" },
+  { d: "23 – 30 Jun", c: "London",   v: "Tour Week",              f: "🇬🇧" },
+  { d: "5 Jul", c: "Durban, ZA",     v: "Homecoming",             f: "🇿🇦" },
+  { d: "10 Aug", c: "Ibiza, ES",     v: "Hï Ibiza",               f: "🇪🇸" },
+  { d: "16 Aug", c: "Netherlands",   v: "Latin Village Festival", f: "🇳🇱" },
+  { d: "18 Sep", c: "Angola",        v: "TBA",                    f: "🇦🇴" },
+];
+
+const PRESS = ["BILLBOARD", "OKAYAFRICA", "APPLE MUSIC · AFRICA RISING", "TURNTABLE CHARTS", "CULTURE CUSTODIAN", "THE YANOS"];
+
+// =================== Scene timeline (master = 30s, 7 scenes) ===================
+// Each scene is gated by SCENES include + start/end window.
+// For 15s vert cut, we squash scenes 1+4+5+6+7 into 15s windows.
+const isShort = DURATION === 15;
+const T = isShort
+  ? { s1:[0,1.0],   s2:[],         s3:[],         s4:[1.0,4.5], s5:[4.5,7.5], s6:[7.5,11.0], s7:[11.0,15.0] }
+  : { s1:[0,1.5],   s2:[1.5,4.5],  s3:[4.5,8.0],  s4:[8.0,13.0], s5:[13.0,18.0], s6:[18.0,24.0], s7:[24.0,30.0] };
+
+const shouldRender = (id) => SCENES.includes(id) && T[`s${id}`].length === 2;
+
+// =================== Scene 1: Logo burst ===================
+function Scene1_LogoBurst() {
+  const { t } = useSprite();
+  // wings: scale 0 → 1.15 → 1, opacity 0 → 1
+  const scale = interpolate(t, [0, 0.5, 1.0], [0.6, 1.18, 1.0], Easing.expoOut);
+  const opacity = interpolate(t, [0, 0.3], [0, 1], Easing.easeOut);
+  // pulse ring: scale 0.5 → 3, opacity 0.8 → 0
+  const ringScale = interpolate(t, [0.3, 1.0], [0.7, 2.8], Easing.expoOut);
+  const ringOpacity = interpolate(t, [0.3, 0.8], [0.85, 0], Easing.linear);
+  // wordmark eyebrow appears after wings settles
+  const eyebrowOpacity = interpolate(t, [0.6, 0.85], [0, 1]);
+  return (
+    <div style={{position:"absolute",inset:0,background:"#000",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div className="grain" />
+      {/* pulse ring */}
+      <div style={{
+        position:"absolute", width: W*0.42, aspectRatio:"1/1",
+        borderRadius:"50%", border:"2px solid rgba(245,166,35,0.55)",
+        transform:`scale(${ringScale})`, opacity: ringOpacity,
+        pointerEvents:"none",
+      }} />
+      <div style={{position:"relative", display:"flex", flexDirection:"column", alignItems:"center", gap: W*0.04}}>
+        <img src={WINGS} alt="" style={{
+          width: W*0.55, opacity, transform:`scale(${scale})`,
+          filter:"drop-shadow(0 10px 60px rgba(245,166,35,0.4))",
+        }} />
+        <div style={{
+          opacity: eyebrowOpacity,
+          fontFamily:"'JetBrains Mono', monospace",
+          fontSize: W*0.018, letterSpacing:"0.5em", textTransform:"uppercase",
+          color:"#F5A623",
+        }}>Welcome to</div>
+      </div>
+    </div>
+  );
+}
+
+// =================== Scene 2: Frame stutter + marquee ===================
+function Scene2_FrameStutter() {
+  const { t, duration } = useSprite();
+  // 8fps cuts → frame index from t
+  const cutsPerSec = 8;
+  const totalCuts = Math.floor(t * duration * cutsPerSec);
+  const idx = totalCuts % FRAMES.length;
+  const frame = FRAMES[idx];
+  // marquee scroll: translateX from 0 → -100%
+  const marqueeX = -(t * 100) % 100;
+  return (
+    <div style={{position:"absolute",inset:0,background:"#000"}}>
+      <img src={frame} alt="" style={{
+        position:"absolute",inset:0,width:"100%",height:"100%",
+        objectFit:"cover", filter:"saturate(1.1) contrast(1.08) brightness(0.85)",
+      }} />
+      <div className="grain" />
+      {/* Top marquee */}
+      <div style={{
+        position:"absolute", top: H*0.08, left:0, right:0,
+        overflow:"hidden", height: H*0.03,
+      }}>
+        <div style={{
+          display:"flex", whiteSpace:"nowrap", transform:`translateX(${marqueeX}%)`,
+          fontFamily:"'JetBrains Mono', monospace", fontSize: H*0.014,
+          letterSpacing:"0.3em", color:"#F5A623", textTransform:"uppercase",
+          gap: W*0.05,
+        }}>
+          {Array.from({length:8}, (_,i) => (
+            <span key={i}>AFRO HOUSE &nbsp;·&nbsp; 3-STEP &nbsp;·&nbsp; AMAPIANO &nbsp;·&nbsp;</span>
+          ))}
+        </div>
+      </div>
+      {/* Bottom gold progress bar */}
+      <div style={{
+        position:"absolute", bottom: H*0.08, left: W*0.1, right: W*0.1,
+        height: 3, background:"rgba(255,255,255,0.15)",
+      }}>
+        <div style={{height:"100%", width:`${t*100}%`, background:"#F5A623"}} />
+      </div>
+      {/* Side label */}
+      <div style={{
+        position:"absolute", bottom: H*0.12, left: W*0.1,
+        fontFamily:"'JetBrains Mono', monospace", fontSize: H*0.012,
+        letterSpacing:"0.35em", color:"rgba(245,245,245,0.85)", textTransform:"uppercase",
+      }}>South Africa · 2026</div>
+    </div>
+  );
+}
+
+// =================== Scene 3: Pull quote + portrait ===================
+function Scene3_Quote() {
+  const { t } = useSprite();
+  const QUOTE = "South Africa's voice in African dance music.";
+  // typewriter
+  const charsShown = Math.floor(interpolate(t, [0.1, 0.85], [0, QUOTE.length]));
+  const typed = QUOTE.slice(0, charsShown);
+  // portrait slide-in from right
+  const portraitX = interpolate(t, [0.25, 0.7], [40, 0], Easing.expoOut);
+  const portraitOpacity = interpolate(t, [0.25, 0.6], [0, 1]);
+  const isVertical = ASPECT === "9-16";
+  return (
+    <div style={{position:"absolute",inset:0,background:"#0a0a0a", display:"flex",
+      flexDirection: isVertical ? "column" : "row", alignItems:"center", justifyContent:"center",
+      padding: W*0.06, gap: W*0.04,
+    }}>
+      <div className="grain" />
+      {/* Quote */}
+      <div style={{flex:1, maxWidth: isVertical ? "100%" : W*0.5}}>
+        <div style={{
+          fontFamily:"'JetBrains Mono', monospace", fontSize: W*0.012,
+          letterSpacing:"0.4em", color:"#F5A623", textTransform:"uppercase",
+          marginBottom: H*0.02,
+        }}>The Press Says</div>
+        <div style={{
+          fontFamily:"'Fraunces', serif", fontStyle:"italic", fontWeight:500,
+          fontSize: isVertical ? W*0.062 : W*0.038,
+          lineHeight:1.15, color:"#f5f5f5",
+        }}>
+          "{typed}<span style={{color:"#F5A623",borderLeft:"2px solid #F5A623",marginLeft:2,opacity:t<0.85?1:0}}>&nbsp;</span>"
+        </div>
+        <div style={{
+          marginTop: H*0.02,
+          fontFamily:"'JetBrains Mono', monospace", fontSize: W*0.01,
+          letterSpacing:"0.3em", color:"rgba(245,245,245,0.55)", textTransform:"uppercase",
+          opacity: interpolate(t,[0.7,0.95],[0,1]),
+        }}>Billboard · OkayAfrica · Apple Music</div>
+      </div>
+      {/* Portrait */}
+      <div style={{
+        flexShrink:0, width: isVertical ? W*0.55 : W*0.32,
+        aspectRatio:"1/1", borderRadius:"50%", overflow:"hidden",
+        opacity: portraitOpacity, transform:`translateX(${portraitX}%)`,
+        boxShadow:"0 0 0 8px rgba(10,10,10,0.7), 0 0 60px -10px rgba(245,166,35,0.45)",
+        border:"3px solid rgba(245,166,35,0.5)",
+      }}>
+        <img src={CIZA_PORTRAIT} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} />
+      </div>
+    </div>
+  );
+}
+
+// =================== Scene 4: Tour ticker ===================
+function Scene4_TourTicker() {
+  const { t, duration } = useSprite();
+  const isVertical = ASPECT === "9-16";
+  // vertical scroll position — TOUR list scrolls upward
+  const rowH = H * 0.085;
+  const totalH = TOUR.length * rowH;
+  // Show top→bottom slow, settle by end
+  const scrollY = interpolate(t, [0.05, 0.85], [H*0.5, -(totalH - H*0.45)], Easing.easeInOut);
+  return (
+    <div style={{position:"absolute",inset:0,background:"#08080a"}}>
+      <div className="grain" />
+      {/* Header */}
+      <div style={{
+        position:"absolute", top: H*0.06, left: W*0.07, right: W*0.07,
+        display:"flex", justifyContent:"space-between", alignItems:"baseline",
+        opacity: interpolate(t,[0,0.15],[0,1]),
+      }}>
+        <div style={{
+          fontFamily:"Inter,sans-serif", fontWeight:900,
+          fontSize: isVertical ? W*0.075 : W*0.045,
+          letterSpacing:"-0.02em", lineHeight:0.95,
+        }}>
+          The Palace<br/><span style={{color:"#F5A623"}}>Goes Global</span>
+        </div>
+        <div style={{
+          fontFamily:"'JetBrains Mono', monospace", fontSize: W*0.011,
+          letterSpacing:"0.3em", color:"rgba(245,245,245,0.55)", textTransform:"uppercase",
+          textAlign:"right",
+        }}>May → Sept<br/>2026</div>
+      </div>
+      {/* Ticker viewport */}
+      <div style={{
+        position:"absolute", top: H*0.32, bottom: H*0.08, left: W*0.07, right: W*0.07,
+        overflow:"hidden", maskImage:"linear-gradient(180deg, transparent 0%, black 12%, black 88%, transparent 100%)",
+        WebkitMaskImage:"linear-gradient(180deg, transparent 0%, black 12%, black 88%, transparent 100%)",
+      }}>
+        <div style={{transform:`translateY(${scrollY}px)`, willChange:"transform"}}>
+          {TOUR.map((show, i) => (
+            <div key={i} style={{
+              height: rowH, display:"flex", alignItems:"center", gap: W*0.03,
+              borderBottom:"1px solid rgba(245,245,245,0.08)",
+              padding: `0 ${W*0.01}px`,
+            }}>
+              <div style={{
+                fontFamily:"'JetBrains Mono', monospace", fontSize: W*0.018,
+                color:"#F5A623", letterSpacing:"0.15em", minWidth: W*0.22,
+              }}>{show.d.toUpperCase()}</div>
+              <div style={{fontSize: W*0.035}}>{show.f}</div>
+              <div style={{
+                flex:1,
+                fontFamily:"Inter,sans-serif", fontWeight:600,
+                fontSize: isVertical ? W*0.034 : W*0.024,
+                color:"#f5f5f5",
+              }}>{show.c}</div>
+              <div style={{
+                fontFamily:"'JetBrains Mono', monospace", fontSize: W*0.012,
+                color:"rgba(245,245,245,0.55)", letterSpacing:"0.15em",
+                textTransform:"uppercase", textAlign:"right",
+              }}>{show.v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =================== Scene 5: Press credentials + Ripple ===================
+function Scene5_PressRipple() {
+  const { t, duration } = useSprite();
+  const isVertical = ASPECT === "9-16";
+  // Ripple grid: cards explode out from center in first 1.0s of scene
+  const GRID_COLS = isVertical ? 4 : 8;
+  const GRID_ROWS = isVertical ? 8 : 5;
+  const CELLS = GRID_COLS * GRID_ROWS;
+  // Focus cycles: 4 press names cycling at 0.85s each
+  const FOCUS_BUCKETS = PRESS.slice(0,4);
+  const focusIdx = Math.min(FOCUS_BUCKETS.length-1, Math.floor((t - 0.2) / 0.18));
+  const focusedPress = FOCUS_BUCKETS[Math.max(0,focusIdx)];
+  // Background dim during focus
+  const focusDim = interpolate(t, [0.2, 0.3], [0, 0.65]);
+  return (
+    <div style={{position:"absolute",inset:0,background:"#000"}}>
+      {/* Grid of frame thumbs */}
+      <div style={{
+        position:"absolute", inset:`${H*0.06}px ${W*0.05}px`,
+        display:"grid",
+        gridTemplateColumns:`repeat(${GRID_COLS}, 1fr)`,
+        gridTemplateRows:`repeat(${GRID_ROWS}, 1fr)`,
+        gap: W*0.008,
+        filter:`saturate(${1-focusDim*0.5}) brightness(${1-focusDim*0.6})`,
+        transition:"filter 200ms ease",
+      }}>
+        {Array.from({length: CELLS}, (_,i) => {
+          const fr = FRAMES[i % FRAMES.length];
+          const cx = i % GRID_COLS;
+          const cy = Math.floor(i / GRID_COLS);
+          const dx = cx - GRID_COLS/2;
+          const dy = cy - GRID_ROWS/2;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          const maxDist = Math.sqrt((GRID_COLS/2)**2 + (GRID_ROWS/2)**2);
+          // Stagger: cells further from center reveal later (0 → 1.0s)
+          const delay = (dist/maxDist) * 0.15;
+          const opacity = interpolate(t, [delay, delay+0.1], [0, 1]);
+          const scale = interpolate(t, [delay, delay+0.15], [0.4, 1], Easing.expoOut);
+          return (
+            <div key={i} style={{
+              overflow:"hidden", borderRadius: W*0.004, opacity,
+              transform:`scale(${scale})`,
+            }}>
+              <img src={fr} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} />
+            </div>
+          );
+        })}
+      </div>
+      <div className="grain" />
+      {/* Center focus label */}
+      <div style={{
+        position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center",
+        opacity: interpolate(t, [0.2, 0.3], [0, 1]),
+        pointerEvents:"none",
+      }}>
+        <div style={{
+          padding: `${H*0.02}px ${W*0.04}px`,
+          background:"rgba(10,10,10,0.55)",
+          backdropFilter:"blur(20px) saturate(160%)",
+          border:"1px solid rgba(245,166,35,0.4)",
+          borderRadius: W*0.012,
+          textAlign:"center",
+        }}>
+          <div style={{
+            fontFamily:"'JetBrains Mono', monospace", fontSize: W*0.012,
+            letterSpacing:"0.35em", color:"#F5A623", textTransform:"uppercase",
+            marginBottom: H*0.012,
+          }}>Featured in</div>
+          <div style={{
+            fontFamily:"Inter,sans-serif", fontWeight:800,
+            fontSize: isVertical ? W*0.045 : W*0.028,
+            letterSpacing:"-0.005em",
+            color:"#f5f5f5",
+          }}>{focusedPress}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =================== Scene 6: Inner Circle gate ===================
+function Scene6_InnerCircle() {
+  const { t } = useSprite();
+  const isVertical = ASPECT === "9-16";
+  const portraitOpacity = interpolate(t, [0.05, 0.3], [0, 1]);
+  const portraitScale = interpolate(t, [0.05, 0.4], [0.85, 1], Easing.expoOut);
+  const headlineY = interpolate(t, [0.2, 0.5], [20, 0], Easing.expoOut);
+  const headlineOpacity = interpolate(t, [0.2, 0.5], [0, 1]);
+  const ctaScale = interpolate(t, [0.5, 0.75], [0.9, 1], Easing.overshoot);
+  const ctaOpacity = interpolate(t, [0.5, 0.65], [0, 1]);
+  return (
+    <div style={{position:"absolute",inset:0,background:"#0a0a0a",
+      display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+      gap: H*0.025, padding: W*0.06,
+    }}>
+      <div className="grain" />
+      {/* Portrait avatar */}
+      <div style={{
+        width: W*0.18, height: W*0.18, borderRadius:"50%", overflow:"hidden",
+        opacity: portraitOpacity, transform:`scale(${portraitScale})`,
+        border:"3px solid rgba(245,166,35,0.5)",
+        boxShadow:"0 0 0 6px rgba(10,10,10,0.7), 0 12px 40px -10px rgba(245,166,35,0.5)",
+      }}>
+        <img src={CIZA_PORTRAIT} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} />
+      </div>
+      <div style={{
+        opacity: interpolate(t,[0.1,0.3],[0,1]),
+        fontFamily:"'JetBrains Mono', monospace", fontSize: W*0.012,
+        letterSpacing:"0.4em", color:"#F5A623", textTransform:"uppercase",
+      }}>A note from the Don</div>
+      <div style={{
+        opacity: headlineOpacity, transform:`translateY(${headlineY}px)`,
+        fontFamily:"'Fraunces', serif", fontStyle:"italic", fontWeight:500,
+        fontSize: isVertical ? W*0.085 : W*0.05,
+        lineHeight:1.1, textAlign:"center", letterSpacing:"-0.005em",
+      }}>Hey Cizarian,</div>
+      <div style={{
+        maxWidth: isVertical ? "85%" : "60%",
+        opacity: interpolate(t,[0.35,0.6],[0,1]),
+        fontFamily:"Inter,sans-serif", fontWeight:300,
+        fontSize: isVertical ? W*0.026 : W*0.016,
+        lineHeight:1.45, textAlign:"center",
+        color:"rgba(245,245,245,0.85)",
+      }}>Join the family for first access to drops, tour dates, and Ciza's Palace live mixes.</div>
+      {/* CTA */}
+      <div style={{
+        opacity: ctaOpacity, transform:`scale(${ctaScale})`,
+        marginTop: H*0.02,
+        padding: `${H*0.018}px ${W*0.05}px`, borderRadius:999,
+        background:"#F5A623", color:"#0a0a0a",
+        fontFamily:"Inter,sans-serif", fontWeight:800,
+        fontSize: isVertical ? W*0.022 : W*0.014,
+        letterSpacing:"0.3em", textTransform:"uppercase",
+        boxShadow:"0 18px 60px -15px rgba(245,166,35,0.7)",
+      }}>Join the Family →</div>
+    </div>
+  );
+}
+
+// =================== Scene 7: End card ===================
+function Scene7_EndCard() {
+  const { t, duration } = useSprite();
+  const isVertical = ASPECT === "9-16";
+  const wingsScale = interpolate(t, [0, 0.4], [0.85, 1], Easing.expoOut);
+  const wingsOpacity = interpolate(t, [0, 0.3], [0, 1]);
+  const urlOpacity = interpolate(t, [0.25, 0.55], [0, 1]);
+  const qrOpacity = interpolate(t, [0.4, 0.7], [0, 1]);
+  const qrScale = interpolate(t, [0.4, 0.8], [0.88, 1], Easing.expoOut);
+  // fade to black at end
+  const fade = interpolate(t, [0.85, 1.0], [0, 1]);
+  return (
+    <div style={{position:"absolute",inset:0,background:"#0a0a0a",
+      display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+      gap: H*0.025, padding: W*0.06,
+    }}>
+      <div className="grain" />
+      <img src={WINGS} alt="" style={{
+        width: isVertical ? W*0.46 : W*0.22,
+        opacity: wingsOpacity, transform:`scale(${wingsScale})`,
+        filter:"drop-shadow(0 10px 40px rgba(245,166,35,0.4))",
+      }} />
+      <div style={{
+        opacity: urlOpacity,
+        fontFamily:"'JetBrains Mono', monospace", fontSize: isVertical ? W*0.025 : W*0.016,
+        letterSpacing:"0.3em", color:"#F5A623", textTransform:"uppercase",
+        marginTop: H*0.01,
+      }}>ciza-palace.lvrn.dev</div>
+      <div style={{
+        opacity: qrOpacity, transform:`scale(${qrScale})`,
+        marginTop: H*0.015,
+        padding: W*0.012, background:"#0a0a0a",
+        border:"1px solid rgba(245,166,35,0.35)",
+        borderRadius: W*0.015,
+        boxShadow:"0 18px 60px -15px rgba(245,166,35,0.4)",
+      }}>
+        <img src={QR_IMG} alt="" style={{
+          width: isVertical ? W*0.28 : W*0.16,
+          height: isVertical ? W*0.28 : W*0.16,
+          display:"block", imageRendering:"pixelated",
+        }} />
+      </div>
+      <div style={{
+        opacity: qrOpacity,
+        fontFamily:"'JetBrains Mono', monospace", fontSize: W*0.011,
+        letterSpacing:"0.35em", color:"rgba(245,245,245,0.55)", textTransform:"uppercase",
+        marginTop: H*0.012,
+      }}>Scan to enter the Palace</div>
+      {/* End fade */}
+      <div style={{position:"absolute",inset:0,background:"#000",opacity:fade,pointerEvents:"none"}} />
+    </div>
+  );
+}
+
+// =================== Still mode helpers ===================
+// In still mode we bypass Stage's clock entirely and render one scene
+// inside a hand-constructed SpriteContext with a fixed sprite-progress.
+// Triggered by ?still=1&scene=N&u=0.5  (u = 0..1 within the scene)
+const SceneMap = {
+  1: Scene1_LogoBurst,
+  2: Scene2_FrameStutter,
+  3: Scene3_Quote,
+  4: Scene4_TourTicker,
+  5: Scene5_PressRipple,
+  6: Scene6_InnerCircle,
+  7: Scene7_EndCard,
+};
+
+function StillFrame() {
+  const sceneId = parseInt(params.get("scene") || "1", 10);
+  const u = parseFloat(params.get("u") || "0.5");
+  const SceneComp = SceneMap[sceneId];
+  if (!SceneComp) return <div style={{color:"red"}}>Unknown scene</div>;
+  // Mock SpriteContext for the scene
+  const window_ = typeof window !== "undefined" ? window : {};
+  const SpriteCtx = window.Animations._SpriteContext; // re-exported below
+  // Fallback: render directly with hardcoded sprite props
+  return (
+    <div style={{position:"fixed",inset:0,width:W,height:H,overflow:"hidden",background:"#000"}}>
+      <SpriteCtx.Provider value={{ t: u, elapsed: u, duration: 1 }}>
+        <SceneComp />
+      </SpriteCtx.Provider>
+    </div>
+  );
+}
+
+// =================== Master composition ===================
+function Composition() {
+  if (STILL_T != null) {
+    // Still-shot mode — single frozen scene
+    return <StillFrame />;
+  }
+  return (
+    <Stage duration={DURATION} width={W} height={H} fps={60} loop={false}>
+      {shouldRender(1) && <Sprite start={T.s1[0]} end={T.s1[1]}><Scene1_LogoBurst /></Sprite>}
+      {shouldRender(2) && <Sprite start={T.s2[0]} end={T.s2[1]}><Scene2_FrameStutter /></Sprite>}
+      {shouldRender(3) && <Sprite start={T.s3[0]} end={T.s3[1]}><Scene3_Quote /></Sprite>}
+      {shouldRender(4) && <Sprite start={T.s4[0]} end={T.s4[1]}><Scene4_TourTicker /></Sprite>}
+      {shouldRender(5) && <Sprite start={T.s5[0]} end={T.s5[1]}><Scene5_PressRipple /></Sprite>}
+      {shouldRender(6) && <Sprite start={T.s6[0]} end={T.s6[1]}><Scene6_InnerCircle /></Sprite>}
+      {shouldRender(7) && <Sprite start={T.s7[0]} end={T.s7[1]}><Scene7_EndCard /></Sprite>}
+    </Stage>
+  );
+}
+
+// Mount
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<Composition />);
+
+// Announce ready for the still screenshotter
+setTimeout(() => { window.__stillReady = true; }, 200);
+</script>
+</body>
+</html>

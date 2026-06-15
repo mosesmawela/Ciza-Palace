@@ -11,6 +11,7 @@ import RotatingHeadline from "./components/RotatingHeadline";
 import Countdown from "./components/Countdown";
 import ShareButton from "./components/ShareButton";
 import SubscribeForm from "./components/SubscribeForm";
+import FullSubscribeForm from "./components/FullSubscribeForm";
 import GlassCard from "./components/GlassCard";
 import Marquee from "./components/Marquee";
 import EyebrowBubble from "./components/EyebrowBubble";
@@ -440,11 +441,8 @@ export default function App() {
               ))}
             </div>
 
-            <div className="text-center">
-              <SubscribeForm />
-              <p className="mt-6 text-[11px] uppercase tracking-[0.25em] font-mono text-muted/80">
-                No spam · Unsubscribe anytime · Real updates only
-              </p>
+            <div>
+              <FullSubscribeForm variant="full" ctaLabel="Join the Inner Circle" />
             </div>
           </GlassCard>
         </ScrollReveal>

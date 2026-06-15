@@ -5,9 +5,9 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const SITE_URL = "https://ciza-palace.lvrn.dev";
 const EPK_URL = "https://ciza.lvrn.dev";
 
-function welcomeEmailText(): string {
+function welcomeEmailText(firstName?: string): string {
   return [
-    "You're in.",
+    firstName ? `You're in, ${firstName}.` : "You're in.",
     "",
     "Welcome to the Inner Circle — first access to CIZA's tour dates, releases, drops, and CIZA'S PALACE live mixes.",
     "",
@@ -26,7 +26,8 @@ function welcomeEmailText(): string {
   ].join("\n");
 }
 
-function welcomeEmailHtml(): string {
+function welcomeEmailHtml(firstName?: string): string {
+  const greeting = firstName ? `You're in, ${firstName}.` : "You're in.";
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -40,7 +41,7 @@ function welcomeEmailHtml(): string {
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#111114;border:1px solid rgba(255,255,255,0.06);border-radius:20px;overflow:hidden;">
         <tr><td style="padding:36px 36px 24px 36px;text-align:center;">
           <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.3em;text-transform:uppercase;color:#F5A623;margin-bottom:12px;">The Inner Circle</div>
-          <h1 style="margin:0 0 16px 0;font-size:32px;line-height:1.05;font-weight:800;letter-spacing:-0.01em;color:#f5f5f5;">You're in.</h1>
+          <h1 style="margin:0 0 16px 0;font-size:32px;line-height:1.05;font-weight:800;letter-spacing:-0.01em;color:#f5f5f5;">${greeting}</h1>
           <p style="margin:0;font-size:15px;line-height:1.55;color:rgba(245,245,245,0.8);">Welcome to the Inner Circle. You'll be the first to hear when CIZA drops new music, announces tour dates, or goes live from <strong style="color:#F5A623;font-weight:600;">CIZA'S PALACE</strong>.</p>
         </td></tr>
 
@@ -83,9 +84,20 @@ function welcomeEmailHtml(): string {
 </html>`;
 }
 
+interface SubscribeBody {
+  email?: unknown;
+  firstName?: unknown;
+  lastName?: unknown;
+  country?: unknown;
+  whatsapp?: unknown;
+  favoriteTrack?: unknown;
+  source?: unknown;
+  website?: unknown;
+}
+
 interface RequestLike {
   method?: string;
-  body?: { email?: unknown; website?: unknown } | string;
+  body?: SubscribeBody | string;
 }
 
 interface ResponseLike {
@@ -103,9 +115,9 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
   }
 
   // Vercel parses JSON bodies into req.body automatically, but be defensive.
-  let body: { email?: unknown; website?: unknown } = {};
+  let body: SubscribeBody = {};
   if (req.body && typeof req.body === "object") {
-    body = req.body as { email?: unknown; website?: unknown };
+    body = req.body as SubscribeBody;
   } else if (typeof req.body === "string") {
     try {
       body = JSON.parse(req.body);
@@ -114,7 +126,12 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
     }
   }
 
-  const { email, website } = body;
+  const { email, website, firstName, country, whatsapp, favoriteTrack, source } = body;
+  const firstNameStr = typeof firstName === "string" ? firstName.trim() : "";
+  const countryStr = typeof country === "string" ? country.trim() : "";
+  const whatsappStr = typeof whatsapp === "string" ? whatsapp.trim() : "";
+  const favoriteTrackStr = typeof favoriteTrack === "string" ? favoriteTrack.trim() : "";
+  const sourceStr = typeof source === "string" ? source.trim() : "";
 
   // Honeypot — bots fill the hidden `website` field; pretend success
   if (typeof website === "string" && website.trim() !== "") {
@@ -135,6 +152,13 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
   }
 
   try {
+    // Resend Audiences API supports first_name + last_name on the contact.
+    // We pack the extras (country, whatsapp, favorite track, source) into
+    // last_name as a single delimited string so they're queryable in the
+    // dashboard until Resend ships proper custom-field support.
+    const extras = [countryStr, whatsappStr, favoriteTrackStr, sourceStr]
+      .filter(Boolean)
+      .join(" · ");
     const resendRes = await fetch(
       `https://api.resend.com/audiences/${audienceId}/contacts`,
       {
@@ -143,7 +167,12 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email: sanitizedEmail, unsubscribed: false }),
+        body: JSON.stringify({
+          email: sanitizedEmail,
+          first_name: firstNameStr || undefined,
+          last_name: extras || undefined,
+          unsubscribed: false,
+        }),
       }
     );
 
@@ -169,9 +198,11 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
         body: JSON.stringify({
           from: `${fromName} <${fromEmail}>`,
           to: [sanitizedEmail],
-          subject: "Welcome to the Inner Circle — CIZA",
-          html: welcomeEmailHtml(),
-          text: welcomeEmailText(),
+          subject: firstNameStr
+            ? `Welcome to the Inner Circle, ${firstNameStr}`
+            : "Welcome to the Inner Circle — CIZA",
+          html: welcomeEmailHtml(firstNameStr),
+          text: welcomeEmailText(firstNameStr),
         }),
       });
       if (!sendRes.ok) {

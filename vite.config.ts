@@ -10,6 +10,10 @@ export default defineConfig(() => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
+      // Force a single React copy — @react-three/fiber + drei hoist their own
+      // peer deps which Vite sometimes serves as a second instance, breaking
+      // hooks with "Invalid hook call".
+      dedupe: ['react', 'react-dom', 'three'],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

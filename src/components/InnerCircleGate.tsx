@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import FullSubscribeForm from "./FullSubscribeForm";
 
 const SITE_URL = "https://ciza-palace.lvrn.dev";
 const SHORT_URL = "https://r.lvrn.dev/ciza-epk-fan-hub";
@@ -44,13 +45,10 @@ export default function InnerCircleGate({
 }: {
   onEnter: () => void;
 }) {
-  const [status, setStatus] = useState<"idle" | "loading" | "ok" | "err">("idle");
-  const [message, setMessage] = useState("");
   const [typed, setTyped] = useState("");
   const [phase, setPhase] = useState<"mounted" | "leaving">("mounted");
   const [shareState, setShareState] = useState<"idle" | "copied">("idle");
   const [qrOpen, setQrOpen] = useState(false);
-  const formRef = useRef<HTMLFormElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const reducedRef = useRef(false);
 
@@ -155,34 +153,10 @@ export default function InnerCircleGate({
     setTimeout(onEnter, 980);
   };
 
-  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const fd = new FormData(form);
-    const email = fd.get("email")?.toString().trim();
-    const website = fd.get("website");
-    if (!email) {
-      setStatus("err");
-      setMessage("Need an email first.");
-      return;
-    }
-    setStatus("loading");
-    try {
-      const res = await fetch("/api/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, website }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed");
-      setStatus("ok");
-      setMessage("You're in. Welcome, Cizarian.");
-      // Hold the confirmation for a beat, then enter cinematically
-      setTimeout(enter, 1400);
-    } catch (err: unknown) {
-      setStatus("err");
-      setMessage(err instanceof Error ? err.message : "Something broke. Try again.");
-    }
+  // Submission is delegated to FullSubscribeForm — on success we just
+  // run the cinematic enter sequence to drop into the site.
+  const onSubscribeSuccess = () => {
+    setTimeout(enter, 1400);
   };
 
   // Split typed text back into paragraphs for layout
@@ -299,59 +273,16 @@ export default function InnerCircleGate({
           })}
         </div>
 
-        {/* Subscribe form */}
-        <form
-          ref={formRef}
-          onSubmit={onSubmit}
-          className="w-full flex flex-col gap-2.5 mb-4"
-        >
-          <input
-            type="text"
-            name="website"
-            tabIndex={-1}
-            autoComplete="off"
-            style={{
-              position: "absolute",
-              left: "-9999px",
-              width: 1,
-              height: 1,
-              opacity: 0,
-            }}
-            aria-hidden="true"
+        {/* Full Inner Circle subscribe form — first name + email + country +
+            whatsapp (optional) + favorite track (optional). Compact variant
+            single-column for the gate. */}
+        <div className="w-full mb-4">
+          <FullSubscribeForm
+            variant="compact"
+            ctaLabel="Join the Family"
+            onSuccess={onSubscribeSuccess}
           />
-          <input
-            type="email"
-            name="email"
-            placeholder="you@email.com"
-            required
-            autoComplete="email"
-            disabled={status === "loading" || status === "ok"}
-            className="w-full bg-white/[0.04] border border-white/15 rounded-full px-5 py-3 text-[13px] text-fg placeholder:text-muted focus:outline-none focus:border-accent transition-colors disabled:opacity-60"
-            style={{ textAlign: "center" }}
-          />
-          <button
-            type="submit"
-            disabled={status === "loading" || status === "ok"}
-            className="beam-border beam-border-white w-full px-6 py-3 bg-accent text-bg rounded-full text-[10px] uppercase tracking-[0.3em] font-bold hover:bg-accent/90 disabled:opacity-50 transition-all"
-          >
-            {status === "loading"
-              ? "..."
-              : status === "ok"
-              ? "✓ You're In"
-              : "Join the Family"}
-          </button>
-          {message && (
-            <p
-              className={`text-center text-[11px] uppercase tracking-[0.2em] font-mono mt-1 ${
-                status === "ok" ? "text-accent" : "text-red-400/90"
-              }`}
-              role="status"
-              aria-live="polite"
-            >
-              {message}
-            </p>
-          )}
-        </form>
+        </div>
 
         {/* Share with friends + QR toggle — side by side, compact */}
         <div className="flex items-center gap-2 mb-3">
