@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import React, { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   TOUR_SHOWS,
   REGION_LABELS,
@@ -258,7 +258,7 @@ function NotifyMe({ show }: { show: Show }) {
 }
 
 // ====== One tour row ======
-function TourRow({ show }: { show: Show }) {
+const TourRow: React.FC<{ show: Show }> = ({ show }) => {
   const past = isPast(show.iso, show.iso_end);
   const dimmed = past || show.status === "sold-out";
   return (
@@ -327,7 +327,7 @@ function TourRow({ show }: { show: Show }) {
       </div>
     </div>
   );
-}
+};
 
 // ====== Map view ======
 const MAP_W = 1100;
