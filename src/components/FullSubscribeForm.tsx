@@ -117,7 +117,7 @@ export default function FullSubscribeForm({
             name="firstName"
             required
             autoComplete="given-name"
-            placeholder="The Don calls you..."
+            placeholder="Enter your name"
             disabled={status === "loading" || status === "ok"}
             className={inputBase}
           />

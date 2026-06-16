@@ -27,7 +27,7 @@ const PORTRAIT_SRC =
 const MESSAGE = [
   "Don Cizario checking in!",
   "",
-  "If you're reading this, you're already part of something special. Sign up to get exclusive access to the world of CIZA — from new music and behind-the-scenes content to first access to shows, experiences, and everything happening at Ciza's Palace.",
+  "If you're reading this, you're already part of something special. Sign up to get exclusive access to the world of CIZA —",
   "",
   "Trust me, you don't want to miss what's coming next.",
   "",
@@ -166,7 +166,7 @@ export default function InnerCircleGate({
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[80] flex items-center justify-center px-5 py-6 overflow-y-auto"
+      className="fixed inset-0 z-[80] overflow-y-auto"
       style={{
         background:
           "radial-gradient(ellipse at 50% 30%, rgba(10,10,12,0.55) 0%, rgba(8,8,10,0.85) 60%, rgba(5,5,7,0.95) 100%)",
@@ -186,6 +186,9 @@ export default function InnerCircleGate({
       aria-modal="true"
       aria-labelledby="gate-heading"
     >
+      {/* Min-h-full wrapper enables "safe center": flex-center if content fits,
+          top-aligned scroll if it overflows — no clipping at the top edge. */}
+      <div className="min-h-full flex items-center justify-center px-5 py-8">
       <div className="relative w-full max-w-[460px] flex flex-col items-center text-center">
         {/* Wings mark at the top — with a single expanding ring on enter */}
         <div className="relative inline-flex items-center justify-center mb-4">
@@ -420,6 +423,7 @@ export default function InnerCircleGate({
           .enter-pulse-ring { animation: none !important; }
         }
       `}</style>
+      </div>
     </div>
   );
 }
