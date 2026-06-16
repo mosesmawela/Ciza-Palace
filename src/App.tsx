@@ -8,8 +8,10 @@ import MagneticCursor from "./components/MagneticCursor";
 import AudioSwellOnScroll from "./components/AudioSwellOnScroll";
 import TypewriterQuote from "./components/TypewriterQuote";
 import RotatingHeadline from "./components/RotatingHeadline";
-import Countdown from "./components/Countdown";
 import ShareButton from "./components/ShareButton";
+import StreamCounter from "./components/StreamCounter";
+import TrackCarousel from "./components/TrackCarousel";
+import PressCarousel from "./components/PressCarousel";
 import SubscribeForm from "./components/SubscribeForm";
 import FullSubscribeForm from "./components/FullSubscribeForm";
 import GlassCard from "./components/GlassCard";
@@ -305,55 +307,43 @@ export default function App() {
                 </h2>
               </div>
 
-              {/* Live countdown to album release */}
-              <div className="self-start md:self-auto px-5 py-3 rounded-2xl border border-accent/30 bg-accent/[0.04]">
-                {/* TODO: Update target to the real album release date+time (SAST).
-                    Today's placeholder is 60 days out from now. */}
-                <Countdown
-                  target="2026-08-15T18:00:00+02:00"
-                  label="CIZA'S PALACE drops in"
-                  liveLabel="OUT NOW · Listen"
-                />
-              </div>
             </div>
-            <style>{`
-              @keyframes stayTunedPing {
-                0%   { transform: scale(1);   opacity: 0.85; }
-                80%, 100% { transform: scale(2.6); opacity: 0; }
-              }
-              .stay-tuned-ping { animation: stayTunedPing 1.8s cubic-bezier(0, 0, 0.2, 1) infinite; }
-              @media (prefers-reduced-motion: reduce) {
-                .stay-tuned-ping { animation: none !important; opacity: 0; }
-              }
-            `}</style>
           </GlassCard>
         </ScrollReveal>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {cizaContent.top_tracks.map((track, i) => (
-            <ScrollReveal key={track.name} delay={i * 0.1}>
-              <GlassCard className="p-3 group">
-                <a href={track.spotify_url} target="_blank" rel="noopener noreferrer" className="block">
-                  <div className="relative aspect-square overflow-hidden rounded-2xl mb-3 bg-card">
-                    <img
-                      src={`${track.cover_url}?tr=w-640,q-78,f-auto`}
-                      alt={track.name}
-                      loading="lazy"
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-700"
-                    />
-                    {/* DSP icons — appear on hover (desktop), always visible on touch */}
-                    <div className="absolute bottom-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity duration-300">
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-black/70 backdrop-blur-sm border border-white/15 text-white">
-                        <SpotifyIcon className="w-3.5 h-3.5" />
-                      </span>
-                    </div>
-                  </div>
-                  <h3 className="font-semibold text-base mb-1 px-1">{track.name}</h3>
-                  <p className="text-xs text-muted font-mono px-1 pb-1">{track.streams}</p>
-                </a>
-              </GlassCard>
-            </ScrollReveal>
-          ))}
-        </div>
+
+        {/* Hero stream-count stat — Isaka 6am headline number */}
+        <ScrollReveal>
+          <div className="text-center my-12 md:my-16">
+            <div className="font-mono text-[10px] md:text-xs uppercase tracking-[0.4em] text-accent/85 mb-3">
+              The Breakout
+            </div>
+            <div className="font-display tracking-tight font-black leading-none">
+              <StreamCounter
+                target={140_000_000}
+                duration={2400}
+                className="text-[18vw] md:text-[10vw] text-accent"
+              />
+            </div>
+            <div className="mt-4 font-mono text-xs md:text-sm uppercase tracking-[0.3em] text-fg/85">
+              Isaka (6am) · Streams &amp; Counting
+            </div>
+            <div className="mt-1.5 text-[11px] md:text-xs text-muted font-mono uppercase tracking-[0.2em]">
+              Spotify SA · Most-Streamed Song of 2025
+            </div>
+          </div>
+        </ScrollReveal>
+
+        {/* Track carousel — Spotify-style swipe coverflow */}
+        <ScrollReveal>
+          <TrackCarousel
+            tracks={cizaContent.top_tracks.map((t) => ({
+              name: t.name,
+              cover_url: t.cover_url,
+              spotify_url: t.spotify_url,
+              streams: t.streams,
+            }))}
+          />
+        </ScrollReveal>
       </section>
 
       <ScrollReveal>
@@ -373,30 +363,79 @@ export default function App() {
             </h2>
           </GlassCard>
         </ScrollReveal>
-        <div className="grid md:grid-cols-2 gap-8">
-          {cizaContent.press_quotes.map((q, i) => {
-            // Randomized typewriter timing per card — varied feel
-            const speeds = [18, 24, 21, 26, 19, 23];
-            const delays = [0, 220, 90, 340, 140, 280];
-            return (
-              <ScrollReveal key={i} delay={i * 0.1}>
-                <GlassCard className="p-8">
-                  <a href={q.url} target="_blank" rel="noopener noreferrer" className="block group">
-                    <TypewriterQuote
-                      text={`"${q.quote}"`}
-                      className="font-serif italic text-lg md:text-xl leading-relaxed text-fg/95 mb-5 block min-h-[5em]"
-                      msPerChar={speeds[i % speeds.length]}
-                      startDelay={delays[i % delays.length]}
-                    />
-                    <cite className="text-xs uppercase tracking-[0.2em] font-mono text-accent not-italic group-hover:text-white transition">
-                      {q.source} →
-                    </cite>
-                  </a>
-                </GlassCard>
-              </ScrollReveal>
-            );
-          })}
-        </div>
+        {/* Awards & milestones carousel — swipe one card at a time */}
+        <ScrollReveal>
+          <PressCarousel
+            items={[
+              {
+                badge: "Metro FM 2026",
+                title: "Artist of the Year + Best Male Artist",
+                source: "Sowetan · April 2026",
+                stat: "Double win · Durban ICC",
+                heroImage:
+                  "https://www.sowetan.co.za/resizer/v2/ACCYDBQSGFDFTM45543YUMEY64.jpg?smart=true&auth=3921f8b573739ccd3f6aa09384dab75e7e0285c97788f6ec12fec762beac1f1c&width=1600&height=900",
+                thumb:
+                  "https://ik.imagekit.io/iwuf0njwbf/LVRN/CIZA.jpg?tr=w-220,h-220,fo-face",
+                url: "https://www.sowetan.co.za/s-mag/culture/2026-04-26-watch-isaka-hitmaker-ciza-wins-big-at-metro-fm-music-awards/",
+              },
+              {
+                badge: "Apple Music 2026",
+                title: "Africa Rising · Class of 2026",
+                source: "The Yanos · January 2026",
+                stat: "One of Africa's most promising talents",
+                heroImage:
+                  "https://theyanos.co.za/wp-content/uploads/2026/01/ab199b2a-4513-48af-a2ad-0dd0db60248b.jpg",
+                thumb:
+                  "https://ik.imagekit.io/iwuf0njwbf/LVRN/ciza%202.jpg?tr=w-220,h-220,fo-face",
+                url: "https://theyanos.co.za/2026/01/ciza-celebrates-selection-as-apple-musics-africa-rising-class-of-2026/",
+              },
+              {
+                badge: "Billboard · Sep 2025",
+                title: "African Rookie of the Month",
+                source: "Billboard · September 2025",
+                stat: "Isaka (6am) · Johannesburg to Lagos",
+                heroImage:
+                  "https://ik.imagekit.io/iwuf0njwbf/LVRN/CIZA.jpg?tr=w-1600,h-900,fo-face",
+                thumb:
+                  "https://ik.imagekit.io/iwuf0njwbf/LVRN/ciza%204.jpg?tr=w-220,h-220,fo-face",
+                url: "https://www.billboard.com/music/music-news/ciza-isaka-6am-september-african-rookie-of-the-month-1236071954/",
+              },
+              {
+                badge: "Spotify SA · 2025",
+                title: "Most-Streamed Song of 2025",
+                source: "Briefly.co.za · 2025",
+                stat: "Isaka (6am) · #1 SA radio · 10 weeks",
+                heroImage:
+                  "https://ik.imagekit.io/iwuf0njwbf/LVRN/isaka-6am.webp?tr=w-1600,h-900",
+                thumb:
+                  "https://ik.imagekit.io/iwuf0njwbf/LVRN/isaka-6am.webp?tr=w-220,h-220",
+                url: "https://briefly.co.za/entertainment/music/230400-cizas-isaka-6am-crowned-spotify-sas-streamed-song-2025/",
+              },
+              {
+                badge: "Music In Africa",
+                title: "Metro FM 2026 · Winners Coverage",
+                source: "Music In Africa · April 2026",
+                stat: "Leading the pack at Durban ICC",
+                heroImage:
+                  "https://ik.imagekit.io/iwuf0njwbf/LVRN/ciza5.jpg?tr=w-1600,h-900,fo-face",
+                thumb:
+                  "https://ik.imagekit.io/iwuf0njwbf/LVRN/ciza%202.jpg?tr=w-220,h-220,fo-face",
+                url: "https://www.musicinafrica.net/magazine/metro-fm-music-awards-2026-all-winners",
+              },
+              {
+                badge: "Texx & The City",
+                title: "Africa Rising · Spotlight",
+                source: "Texx and the City · January 2026",
+                stat: "Spiritual afro-house to emotionally fluent pop",
+                heroImage:
+                  "https://ik.imagekit.io/iwuf0njwbf/LVRN/ciza%204.jpg?tr=w-1600,h-900,fo-face",
+                thumb:
+                  "https://ik.imagekit.io/iwuf0njwbf/LVRN/CIZA.jpg?tr=w-220,h-220,fo-face",
+                url: "https://texxandthecity.com/2026/01/ciza-announced-as-part-of-apple-musics-africa-rising-class-of-2026/",
+              },
+            ]}
+          />
+        </ScrollReveal>
       </section>
 
       <section id="subscribe" className="max-w-4xl mx-auto px-6 py-32">
