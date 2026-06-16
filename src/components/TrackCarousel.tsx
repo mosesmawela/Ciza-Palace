@@ -1,17 +1,25 @@
 import React, { useEffect, useRef, useState } from "react";
-import { motion, useMotionValue, useTransform, animate, type PanInfo } from "motion/react";
+import {
+  motion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+  animate,
+  type PanInfo,
+  type MotionValue,
+} from "motion/react";
 
 /**
- * Spotify-style coverflow track carousel — liquid spring physics.
+ * Spotify-style coverflow track carousel.
  *
- * - Each cover lives at an offset relative to `active`. Position +
- *   tilt + scale interpolate via Framer Motion springs (not CSS) so
- *   they continuously follow the playhead, not snap-cut.
- * - During drag, every cover's x-offset gets a real-time delta from
- *   the pointer — rubber-band feel.
- * - On drag end, momentum + velocity decide whether to advance.
- * - Active cover subtly breathes (scale 1 ↔ 1.025, 4s loop).
- * - Keyboard arrows + dots remain.
+ * Architecture — one continuous "position" motion value drives every cover.
+ * - `position` MV holds a float (e.g. 2.0 = on track 2, 1.6 = between 1 and 2)
+ * - On click/arrow/dot: animate `position` to integer with spring
+ * - On drag: update `position` directly from drag offset / cover gap
+ * - On drag end: snap to nearest integer with velocity-aware spring
+ *
+ * Each cover renders its own transforms from `position` — no hooks-in-loop,
+ * single source of truth, fluid through the whole interaction.
  */
 
 export type Track = {
@@ -22,127 +30,170 @@ export type Track = {
   metaSlot?: React.ReactNode;
 };
 
-const COVER_GAP = 130; // px between cover centers in resting state
-const SPRING = { type: "spring" as const, stiffness: 220, damping: 28, mass: 0.7 };
-const DRAG_DAMP = 0.6; // how much pointer drag actually moves covers (rubber-band)
+const COVER_GAP = 130;
+const SNAP_SPRING = { type: "spring" as const, stiffness: 260, damping: 30, mass: 0.65 } as const;
+const SOFT_SPRING = { type: "spring" as const, stiffness: 200, damping: 24, mass: 0.6 } as const;
+
+// Shortest signed distance considering wrap-around
+function signedDist(idx: number, pos: number, total: number): number {
+  let d = idx - pos;
+  if (d > total / 2) d -= total;
+  if (d < -total / 2) d += total;
+  return d;
+}
+
+type CoverProps = {
+  track: Track;
+  index: number;
+  total: number;
+  position: MotionValue<number>;
+  isCenter: boolean;
+  onSelect: () => void;
+};
+
+const Cover: React.FC<CoverProps> = ({
+  track,
+  index,
+  total,
+  position,
+  isCenter,
+  onSelect,
+}) => {
+  const x = useTransform(position, (p: number) => signedDist(index, p, total) * COVER_GAP);
+  const scale = useTransform(position, (p: number) => {
+    const d = signedDist(index, p, total);
+    const abs = Math.abs(d);
+    if (abs < 1) return 1 - abs * 0.22;
+    return Math.max(0.55, 0.78 - (abs - 1) * 0.08);
+  });
+  const rotateY = useTransform(position, (p: number) => {
+    const d = signedDist(index, p, total);
+    if (d === 0) return 0;
+    // ease the tilt across the centre — feels smoother than constant ±22°
+    const sign = d > 0 ? -1 : 1;
+    return sign * Math.min(22, Math.abs(d) * 22);
+  });
+  const opacity = useTransform(position, (p: number) => {
+    const abs = Math.abs(signedDist(index, p, total));
+    if (abs > 2.4) return 0;
+    if (abs < 0.5) return 1;
+    return Math.max(0, 0.95 - (abs - 0.5) * 0.4);
+  });
+  const zIndex = useTransform(position, (p: number) => 100 - Math.round(Math.abs(signedDist(index, p, total)) * 10));
+
+  return (
+    <motion.button
+      type="button"
+      onClick={onSelect}
+      aria-label={`Select ${track.name}`}
+      className="absolute rounded-2xl overflow-hidden shadow-[0_30px_60px_-20px_rgba(0,0,0,0.7)] outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      style={{
+        width: "min(72vw, 280px)",
+        aspectRatio: "1 / 1",
+        x,
+        scale,
+        rotateY,
+        opacity,
+        zIndex,
+        background: "#111",
+        border: "1px solid rgba(255,255,255,0.08)",
+        transformStyle: "preserve-3d",
+        willChange: "transform, opacity",
+      }}
+      whileTap={{ scale: 0.97 }}
+    >
+      <motion.img
+        src={`${track.cover_url}${track.cover_url.includes("?") ? "&" : "?"}tr=w-640,q-82,f-auto`}
+        alt={track.name}
+        loading="lazy"
+        draggable={false}
+        className="w-full h-full object-cover"
+        animate={isCenter ? { scale: [1, 1.03, 1] } : { scale: 1 }}
+        transition={
+          isCenter ? { duration: 5.4, repeat: Infinity, ease: "easeInOut" } : { duration: 0.35 }
+        }
+      />
+    </motion.button>
+  );
+};
 
 export default function TrackCarousel({ tracks }: { tracks: Track[] }) {
   const [active, setActive] = useState(0);
-  const wrapRef = useRef<HTMLDivElement | null>(null);
-  const dragX = useMotionValue(0);
+  const total = tracks.length;
 
-  // Keyboard arrows
+  // The continuous playhead. position.get() is a float; integer = snapped.
+  const position = useMotionValue(0);
+  // Spring-smoothed view of the position — what covers actually read.
+  const smoothPos = useSpring(position, { stiffness: 280, damping: 32, mass: 0.65 });
+
+  // Snap to integer when active changes (button / dot / keyboard click)
+  useEffect(() => {
+    animate(position, active, SNAP_SPRING);
+  }, [active]);
+
+  // Keyboard
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") setActive((i) => (i + 1) % tracks.length);
-      if (e.key === "ArrowLeft") setActive((i) => (i - 1 + tracks.length) % tracks.length);
+      if (e.key === "ArrowRight") setActive((i) => (i + 1) % total);
+      if (e.key === "ArrowLeft") setActive((i) => (i - 1 + total) % total);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [tracks.length]);
+  }, [total]);
 
-  const next = () => setActive((i) => (i + 1) % tracks.length);
-  const prev = () => setActive((i) => (i - 1 + tracks.length) % tracks.length);
+  const next = () => setActive((i) => (i + 1) % total);
+  const prev = () => setActive((i) => (i - 1 + total) % total);
 
+  // Track the position at drag start so onDrag updates relative to it
+  const dragStartPosRef = useRef(0);
+
+  const onDragStart = () => {
+    dragStartPosRef.current = position.get();
+  };
+  const onDrag = (_: unknown, info: PanInfo) => {
+    // Convert pixel drag to fractional track movement.
+    // Negative drag (leftward) increases position (next track).
+    const fractional = -info.offset.x / COVER_GAP;
+    position.set(dragStartPosRef.current + fractional * 0.65);
+  };
   const onDragEnd = (_: unknown, info: PanInfo) => {
-    const dx = info.offset.x;
-    const vx = info.velocity.x;
-    // Combine displacement + flick velocity into a "swipe score"
-    const swipe = Math.abs(dx) * 1 + Math.abs(vx) * 0.15;
-    if (swipe > 50) {
-      if (dx + vx * 0.2 < 0) next();
-      else prev();
-    }
-    animate(dragX, 0, { type: "spring", stiffness: 320, damping: 30 });
+    const fractional = -info.offset.x / COVER_GAP;
+    const projected = dragStartPosRef.current + fractional * 0.65 + (-info.velocity.x / COVER_GAP) * 0.18;
+    const rounded = Math.round(projected);
+    // Wrap into [0, total)
+    const targetIdx = ((rounded % total) + total) % total;
+    setActive(targetIdx);
+    // Smooth spring into the snapped value (active effect handles it but
+    // we also animate position directly from the released drag value)
+    animate(position, targetIdx, SOFT_SPRING);
   };
 
   const current = tracks[active];
 
   return (
-    <div className="relative w-full" ref={wrapRef}>
+    <div className="relative w-full">
       <motion.div
-        className="relative h-[360px] md:h-[420px] flex items-center justify-center select-none touch-pan-y"
+        className="relative h-[360px] md:h-[420px] flex items-center justify-center select-none touch-pan-y cursor-grab active:cursor-grabbing"
         style={{ perspective: "1400px" }}
         drag="x"
         dragElastic={0.18}
         dragConstraints={{ left: 0, right: 0 }}
         dragMomentum={false}
-        onDrag={(_e, info) => dragX.set(info.offset.x * DRAG_DAMP)}
+        onDragStart={onDragStart}
+        onDrag={onDrag}
         onDragEnd={onDragEnd}
       >
-        {tracks.map((t, idx) => {
-          // Compute shortest signed distance around the ring
-          let raw = idx - active;
-          if (raw > tracks.length / 2) raw -= tracks.length;
-          if (raw < -tracks.length / 2) raw += tracks.length;
-          const isCenter = raw === 0;
-          // Reuse dragX so during drag, covers track the finger fluidly
-          const x = useTransform(dragX, (d) => raw * COVER_GAP + d);
-          const scale = useTransform(dragX, (d) => {
-            const offset = raw + d / COVER_GAP;
-            const abs = Math.abs(offset);
-            return offset === 0
-              ? 1
-              : abs < 1
-              ? 1 - abs * 0.22
-              : 0.78 - Math.min(1, abs - 1) * 0.08;
-          });
-          const ry = useTransform(dragX, (d) => {
-            const offset = raw + d / COVER_GAP;
-            return offset === 0 ? 0 : offset > 0 ? -22 : 22;
-          });
-          const opacity = useTransform(dragX, (d) => {
-            const offset = raw + d / COVER_GAP;
-            const abs = Math.abs(offset);
-            return abs > 2.4 ? 0 : abs < 0.5 ? 1 : Math.max(0, 0.7 - (abs - 0.5) * 0.35);
-          });
-          const z = -Math.abs(raw);
-          // Hide far-out covers entirely for perf
-          if (Math.abs(raw) > 2) return null;
-
-          return (
-            <motion.button
-              key={idx}
-              type="button"
-              onClick={() => setActive(idx)}
-              aria-label={`Select ${t.name}`}
-              className="absolute rounded-2xl overflow-hidden shadow-[0_30px_60px_-20px_rgba(0,0,0,0.7)] outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              style={{
-                width: "min(72vw, 280px)",
-                aspectRatio: "1 / 1",
-                x,
-                scale,
-                rotateY: ry,
-                opacity,
-                zIndex: 10 - Math.abs(raw),
-                pointerEvents: isCenter ? "auto" : "auto",
-                background: "#111",
-                border: "1px solid rgba(255,255,255,0.08)",
-                transformStyle: "preserve-3d",
-              }}
-              transition={SPRING}
-              whileTap={{ scale: 0.98 }}
-            >
-              <motion.img
-                src={`${t.cover_url}${t.cover_url.includes("?") ? "&" : "?"}tr=w-640,q-82,f-auto`}
-                alt={t.name}
-                loading={Math.abs(raw) > 1 ? "lazy" : "eager"}
-                draggable={false}
-                className="w-full h-full object-cover"
-                animate={
-                  isCenter
-                    ? { scale: [1, 1.03, 1] }
-                    : { scale: 1 }
-                }
-                transition={
-                  isCenter
-                    ? { duration: 5.2, repeat: Infinity, ease: "easeInOut" }
-                    : { duration: 0.4 }
-                }
-              />
-            </motion.button>
-          );
-        })}
+        {tracks.map((track, idx) => (
+          <Cover
+            key={idx}
+            track={track}
+            index={idx}
+            total={total}
+            position={smoothPos}
+            isCenter={idx === active}
+            onSelect={() => setActive(idx)}
+          />
+        ))}
       </motion.div>
 
       {/* Now-selected info + player bar */}
@@ -213,7 +264,6 @@ export default function TrackCarousel({ tracks }: { tracks: Track[] }) {
           </motion.button>
         </div>
 
-        {/* Dot indicators with morphing pill */}
         <div className="flex items-center justify-center gap-2 mt-5">
           {tracks.map((_, i) => (
             <motion.button
@@ -225,7 +275,7 @@ export default function TrackCarousel({ tracks }: { tracks: Track[] }) {
                 width: i === active ? 22 : 6,
                 backgroundColor: i === active ? "#F5A623" : "rgba(255,255,255,0.25)",
               }}
-              transition={SPRING}
+              transition={SNAP_SPRING}
               style={{ height: 6, borderRadius: 999 }}
             />
           ))}
