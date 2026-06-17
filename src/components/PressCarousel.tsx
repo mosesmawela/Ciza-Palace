@@ -74,10 +74,9 @@ export default function PressCarousel({ items }: { items: PressItem[] }) {
   return (
     <div className="relative w-full">
       <div
-        className="relative overflow-hidden rounded-3xl"
-        style={{ aspectRatio: "16 / 9", maxHeight: 360 }}
+        className="relative overflow-hidden rounded-3xl w-full aspect-[16/9] md:aspect-[21/9]"
       >
-        <AnimatePresence mode="popLayout" custom={dir} initial={false}>
+        <AnimatePresence mode="wait" custom={dir} initial={false}>
           <motion.a
             key={active}
             href={item.url}
